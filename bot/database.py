@@ -68,3 +68,28 @@ async def update_worker(
             name,
             worker_id,
         )
+
+async def add_worker(name: str):
+    async with _pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """
+            INSERT INTO workers (name)
+            VALUES ($1)
+            RETURNING id, name, active, is_reserve, reserve_number
+            """,
+            name,
+        )
+        return dict(row)
+
+async def deactivate_worker(worker_id: int):
+    async with _pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """
+            UPDATE workers
+            SET active = FALSE
+            WHERE id = $1
+            RETURNING id, name, active, is_reserve, reserve_number
+            """,
+            worker_id,
+        )
+        return dict(row) if row else None
