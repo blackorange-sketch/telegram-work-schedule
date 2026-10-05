@@ -105,6 +105,7 @@ async function addWorker() {
 
 async function editWorker(id, oldName) {
     const modal = document.getElementById("workerModal");
+    alert("EDIT: " + id + " / " + oldName);
     const input = document.getElementById("workerNameInput");
     const saveButton = document.getElementById("saveWorkerButton");
 
