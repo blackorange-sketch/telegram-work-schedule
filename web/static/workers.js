@@ -4,10 +4,11 @@ function showWorkersScreen() {
     main.innerHTML = `
         <section class="card workers-card">
             <div class="card-title">👥 Працівники</div>
-            <div id="workersList"></div>
+            <div id="workersList"></div><button id="addWorkerButton" class="add-worker-button">＋ Додати працівника</button>
         </section>
     `;
     loadWorkers();
+    setupWorkerButtons();
 }
 
 async function loadWorkers() {
@@ -37,4 +38,30 @@ function renderWorkers(workers) {
 
         list.appendChild(row);
     });
+}
+
+function setupWorkerButtons() {
+    const button = document.getElementById("addWorkerButton");
+
+    button.addEventListener("click", addWorker);
+}
+
+async function addWorker() {
+    const name = prompt("Ім'я працівника:");
+
+    if (!name || !name.trim()) {
+        return;
+    }
+
+    await fetch("/api/workers", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            name: name.trim()
+        })
+    });
+
+    await loadWorkers();
 }
