@@ -26,7 +26,7 @@ async function loadWorkers() {
 
 function renderWorkers(workers) {
     const list = document.getElementById("workersList");
-    list.innerHTML = "";
+    list.innerHTML = "<div>ТЕСТ: список працює</div>";
 
     workers.forEach(worker => {
         const row = document.createElement("div");
