@@ -34,11 +34,12 @@ function renderWorkers(workers) {
         row.innerHTML = `
             <span class="worker-name">${worker.name}${worker.is_reserve ? ' <small>🟢 Резерв</small>' : ""}</span>
             <div class="worker-actions">
-                <button onclick="editWorker(${worker.id}, ${JSON.stringify(worker.name)})">✏️</button><button onclick="toggleReserve(${worker.id}, ${worker.is_reserve})">${worker.is_reserve ? "🟢" : "🛡️"}</button>
+                <button class="edit-worker-btn">✏️</button><button onclick="toggleReserve(${worker.id}, ${worker.is_reserve})">${worker.is_reserve ? "🟢" : "🛡️"}</button>
                 <button onclick="deleteWorker(${worker.id})">🗑</button>
             </div>
         `;
 
+        row.querySelector(".edit-worker-btn").onclick = () => editWorker(worker.id, worker.name);
         list.appendChild(row);
     });
 }
@@ -105,7 +106,6 @@ async function addWorker() {
 
 async function editWorker(id, oldName) {
     const modal = document.getElementById("workerModal");
-    alert("EDIT: " + id + " / " + oldName);
     const input = document.getElementById("workerNameInput");
     const saveButton = document.getElementById("saveWorkerButton");
 
