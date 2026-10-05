@@ -24,6 +24,7 @@ from bot.database import (
     get_workers,
     add_worker,
     update_worker,
+    set_worker_reserve,
     deactivate_worker,
 )
 
@@ -111,6 +112,19 @@ async def worker_update(worker_id: int, data: dict):
 @app.delete("/api/workers/{worker_id}")
 async def worker_delete(worker_id: int):
     worker = await deactivate_worker(worker_id)
+
+    if not worker:
+        raise HTTPException(
+            status_code=404,
+            detail="Працівника не знайдено",
+        )
+
+    return worker
+
+@app.put("/api/workers/{worker_id}/reserve")
+async def worker_reserve(worker_id: int, data: dict):
+    is_reserve = bool(data.get("is_reserve", False))
+    worker = await set_worker_reserve(worker_id, is_reserve)
 
     if not worker:
         raise HTTPException(

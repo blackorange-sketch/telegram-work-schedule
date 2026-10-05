@@ -24,19 +24,12 @@ async def init_db():
                 reserve_number INTEGER
             )
         """)
+        await conn.execute("ALTER TABLE workers ADD COLUMN IF NOT EXISTS active BOOLEAN NOT NULL DEFAULT TRUE")
 
         count = await conn.fetchval(
             "SELECT COUNT(*) FROM workers"
         )
 
-        if count == 0:
-            await conn.executemany(
-                """
-                INSERT INTO workers (name)
-                VALUES ($1)
-                """,
-                [("",) for _ in range(12)]
-            )
 
 
 async def get_workers():
@@ -46,8 +39,10 @@ async def get_workers():
                 id,
                 name,
                 is_reserve,
-                reserve_number
+                reserve_number,
+                active
             FROM workers
+            WHERE active = TRUE
             ORDER BY id
         """)
 
@@ -93,3 +88,17 @@ async def deactivate_worker(worker_id: int):
             worker_id,
         )
         return dict(row) if row else None
+
+async def set_worker_reserve(worker_id: int, is_reserve: bool):
+    async with _pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """
+            UPDATE workers
+            SET is_reserve = $1
+            WHERE id = $2
+            RETURNING id, name, active, is_reserve, reserve_number
+            """,
+            is_reserve,
+            worker_id,
+        )
+    return dict(row) if row else None

@@ -613,3 +613,11 @@ main {
 .bottom-nav {
     z-index: 100;
 }
+
+.worker-name small {
+    display: block;
+    margin-top: 3px;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--accent);
+}

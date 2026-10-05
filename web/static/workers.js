@@ -33,9 +33,9 @@ function renderWorkers(workers) {
         row.className = "worker-row";
 
         row.innerHTML = `
-            <span class="worker-name">${worker.name}</span>
+            <span class="worker-name">${worker.name}${worker.is_reserve ? ' <small>🟢 Резерв</small>' : ""}</span>
             <div class="worker-actions">
-                <button onclick="editWorker(${worker.id}, ${JSON.stringify(worker.name)})">✏️</button>
+                <button onclick="editWorker(${worker.id}, ${JSON.stringify(worker.name)})">✏️</button><button onclick="toggleReserve(${worker.id}, ${worker.is_reserve})">${worker.is_reserve ? "🟢" : "🛡️"}</button>
                 <button onclick="deleteWorker(${worker.id})">🗑</button>
             </div>
         `;
@@ -159,6 +159,25 @@ async function deleteWorker(id) {
 
     if (!response.ok) {
         alert("Не вдалося деактивувати працівника");
+        return;
+    }
+
+    await loadWorkers();
+}
+
+async function toggleReserve(id, currentState) {
+    const response = await fetch(`/api/workers/${id}/reserve`, {
+        method: "PUT",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            is_reserve: !currentState
+        })
+    });
+
+    if (!response.ok) {
+        alert("Не вдалося змінити статус резерву");
         return;
     }
 
