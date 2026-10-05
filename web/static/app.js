@@ -4,20 +4,7 @@ tg.ready();
 tg.expand();
 const scheduleTemplate = document.querySelector("main").innerHTML;
 
-const workers = [
-    { name: "Андрій", stations: [15, 16, 17, 18, 19], lunch: "10:00" },
-    { name: "Олег", stations: [16, 17, 18, 19, 20], lunch: "10:00" },
-    { name: "Іван", stations: [17, 18, 19, 20, 21], lunch: "10:30" },
-    { name: "Петро", stations: [18, 19, 20, 21, 22], lunch: "10:30" },
-    { name: "Микола", stations: [19, 20, 21, 22, 23], lunch: "11:00" },
-    { name: "Сергій", stations: [20, 21, 22, 23, 24], lunch: "11:00" },
-    { name: "Віталій", stations: [21, 22, 23, 24, 15], lunch: "11:30" },
-    { name: "Роман", stations: [22, 23, 24, 15, 16], lunch: "11:30" },
-    { name: "Максим", stations: [23, 24, 15, 16, 17], lunch: "12:00" },
-    { name: "Дмитро", stations: [24, 15, 16, 17, 18], lunch: "12:00" },
-    { name: "Олексій", stations: [15, 17, 19, 21, 23], lunch: "12:30" },
-    { name: "Богдан", stations: [16, 18, 20, 22, 24], lunch: "12:30" }
-];
+let workers = [];
 
 function renderSchedule() {
     const body = document.getElementById("scheduleBody");
@@ -76,9 +63,20 @@ navButtons[1].addEventListener("click", () => {
     setActiveNav(1);
 });
 
-function showScheduleScreen() {
+async function loadScheduleWorkers() {
+    const response = await fetch("/api/workers");
+    if (!response.ok) {
+        alert("Не вдалося завантажити працівників");
+        return;
+    }
+    const data = await response.json();
+    workers = data;
+}
+
+async function showScheduleScreen() {
     const main = document.querySelector("main");
     main.innerHTML = scheduleTemplate;
+    await loadScheduleWorkers();
     renderSchedule();
     bindScheduleButtons();
 }
