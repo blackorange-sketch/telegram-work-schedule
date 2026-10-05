@@ -26,6 +26,7 @@ async function loadWorkers() {
 
 function renderWorkers(workers) {
     alert("RENDER ЗАПУЩЕНО");
+    alert("LIST: " + list + " | HTML: " + list.innerHTML.length + " | H: " + list.offsetHeight);
     const list = document.getElementById("workersList");
     list.innerHTML = "<div>ТЕСТ: список працює</div>";
 
