@@ -2,6 +2,7 @@
 <html lang="uk">
 <head>
     <meta charset="UTF-8">
+
     <meta
         name="viewport"
         content="width=device-width, initial-scale=1.0, viewport-fit=cover"
@@ -18,108 +19,200 @@
 
 <div class="app">
 
+    <!-- HEADER -->
     <header class="header">
-        <div>
+
+        <div class="header-info">
             <div class="title">Розклад</div>
-            <div class="subtitle">6–10 жовтня 2026</div>
+            <div class="week">
+                6 — 10 жовтня 2026
+            </div>
         </div>
 
-        <div class="profile">
+        <button class="icon-button">
             👤
-        </div>
+        </button>
+
     </header>
 
+
+    <!-- WEEK NAVIGATION -->
+    <section class="week-navigation">
+
+        <button id="prevWeek">‹</button>
+
+        <div class="week-center">
+            <strong id="weekTitle">
+                Поточний тиждень
+            </strong>
+
+            <span>
+                Понеділок — П'ятниця
+            </span>
+        </div>
+
+        <button id="nextWeek">›</button>
+
+    </section>
+
+
+    <!-- SCHEDULE -->
     <main>
 
-        <section class="week-selector">
-            <button>‹</button>
-            <div>
-                <strong>Поточний тиждень</strong>
-                <span>Пн — Пт</span>
+        <section class="schedule-wrapper">
+
+            <div class="table-scroll">
+
+                <table class="schedule">
+
+                    <thead>
+
+                        <tr>
+                            <th class="name-column">
+                                Працівник
+                            </th>
+
+                            <th>
+                                Пн
+                            </th>
+
+                            <th>
+                                Вт
+                            </th>
+
+                            <th>
+                                Ср
+                            </th>
+
+                            <th>
+                                Чт
+                            </th>
+
+                            <th>
+                                Пт
+                            </th>
+
+                            <th class="lunch-column">
+                                Обід
+                            </th>
+                        </tr>
+
+                    </thead>
+
+                    <tbody id="scheduleBody">
+
+                    </tbody>
+
+                </table>
+
             </div>
-            <button>›</button>
+
         </section>
 
-        <section class="schedule-card">
 
-            <div class="card-header">
-                <span>Працівники</span>
-                <span>Станція</span>
+        <!-- RESERVE -->
+        <section class="card">
+
+            <div class="card-title">
+                🔄 Резерв
             </div>
 
-            <div class="worker">
-                <div>
-                    <strong>Андрій</strong>
-                    <small>06:00–14:00</small>
-                </div>
-                <div class="station">15</div>
-            </div>
+            <div class="reserve-list">
 
-            <div class="worker">
-                <div>
-                    <strong>Олег</strong>
-                    <small>06:00–14:00</small>
+                <div class="reserve-person">
+                    <span>Микола</span>
+                    <small>Резерв 1</small>
                 </div>
-                <div class="station">16</div>
-            </div>
 
-            <div class="worker">
-                <div>
-                    <strong>Іван</strong>
-                    <small>06:00–14:00</small>
+                <div class="reserve-person">
+                    <span>Сергій</span>
+                    <small>Резерв 2</small>
                 </div>
-                <div class="station">17</div>
-            </div>
 
-            <div class="worker">
-                <div>
-                    <strong>Петро</strong>
-                    <small>06:00–14:00</small>
-                </div>
-                <div class="station">18</div>
             </div>
 
         </section>
 
-        <section class="reserve-card">
-            <div class="section-title">🔄 Резерв</div>
 
-            <div class="reserve-workers">
-                <span>Микола</span>
-                <span>Сергій</span>
-            </div>
-        </section>
+        <!-- SHIFT -->
+        <section class="card">
 
-        <section class="lunch-card">
-            <div class="section-title">🍽 Обіди</div>
-
-            <div class="lunch-row">
-                <span>Андрій + Олег</span>
-                <strong>17:00</strong>
+            <div class="card-title">
+                🕐 Зміни
             </div>
 
-            <div class="lunch-row">
-                <span>Іван + Петро</span>
-                <strong>17:30</strong>
+            <div class="shift-list">
+
+                <div class="shift">
+                    <span class="shift-number shift-1">
+                        1
+                    </span>
+
+                    <div>
+                        <strong>1 зміна</strong>
+                        <small>06:00 — 14:00</small>
+                    </div>
+                </div>
+
+                <div class="shift">
+                    <span class="shift-number shift-2">
+                        2
+                    </span>
+
+                    <div>
+                        <strong>2 зміна</strong>
+                        <small>14:00 — 22:00</small>
+                    </div>
+                </div>
+
+                <div class="shift">
+                    <span class="shift-number shift-3">
+                        3
+                    </span>
+
+                    <div>
+                        <strong>3 зміна</strong>
+                        <small>22:00 — 06:00</small>
+                    </div>
+                </div>
+
             </div>
+
         </section>
 
     </main>
 
+
+    <!-- BOTTOM NAVIGATION -->
     <nav class="bottom-nav">
-        <button class="active">📅<span>Розклад</span></button>
-        <button>👥<span>Люди</span></button>
-        <button>⚙️<span>Налаштування</span></button>
+
+        <button class="active">
+            <span>📅</span>
+            <small>Розклад</small>
+        </button>
+
+        <button>
+            <span>👥</span>
+            <small>Працівники</small>
+        </button>
+
+        <button>
+            <span>🍽</span>
+            <small>Обіди</small>
+        </button>
+
+        <button>
+            <span>⚙️</span>
+            <small>Налаштування</small>
+        </button>
+
     </nav>
 
 </div>
 
-<script>
-    const tg = window.Telegram.WebApp;
 
-    tg.ready();
-    tg.expand();
-</script>
+<script src="/static/workers.js"></script>
+<script src="/static/app.js"></script>
 
 </body>
 </html>

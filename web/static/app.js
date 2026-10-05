@@ -76,3 +76,6 @@ document.getElementById("nextWeek").addEventListener("click", () => {
     weekOffset++;
     updateWeek();
 });
+
+const navButtons = document.querySelectorAll(".bottom-nav button");
+navButtons[1].addEventListener("click", showWorkersScreen);
