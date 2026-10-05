@@ -40,6 +40,9 @@ function renderWorkers(workers) {
             </div>
         `;
 
+        list.appendChild(row);
+    });
+}
 function setupWorkerButtons() {
     const addButton = document.getElementById("addWorkerButton");
     const cancelButton = document.getElementById("cancelWorkerButton");
@@ -52,11 +55,6 @@ function setupWorkerButtons() {
         input.value = "";
         input.focus();
         saveButton.onclick = addWorker;
-    input.onkeydown = (event) => {
-        if (event.key === "Enter") {
-            saveButton.click();
-        }
-    };
     };
 
     modal.onclick = (event) => {
@@ -74,9 +72,6 @@ function setupWorkerButtons() {
             saveButton.click();
         }
     };
-}
-    });
-
 }
 
 async function addWorker() {
