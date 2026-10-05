@@ -26,6 +26,11 @@ from bot.database import (
     update_worker,
     set_worker_reserve,
     deactivate_worker,
+    get_schedule_settings,
+    set_schedule_settings,
+    get_shift_for_week,
+
+
 )
 
 
@@ -133,7 +138,57 @@ async def worker_reserve(worker_id: int, data: dict):
         )
 
     return worker
+@app.get("/api/schedule/shift")
+async def schedule_shift(week_start: str):
+    try:
+        from datetime import date
+        week_start = date.fromisoformat(week_start)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="Некоректна дата тижня")
 
+    shift = await get_shift_for_week(week_start)
+
+    if shift is None:
+        raise HTTPException(status_code=404, detail="Налаштування зміни ще не задано")
+
+    return {"week_start": week_start.isoformat(), "shift": shift}
+
+
+
+
+
+# =========================
+# Schedule Settings API
+# =========================
+
+@app.get("/api/schedule/settings")
+async def schedule_settings_get():
+    return await get_schedule_settings()
+
+
+@app.put("/api/schedule/settings")
+async def schedule_settings_update(data: dict):
+    start_week = data.get("start_week")
+    start_shift = data.get("start_shift")
+
+    if not start_week:
+        raise HTTPException(status_code=400, detail="Тиждень не вказано")
+
+    try:
+        start_shift = int(start_shift)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="Некоректна зміна")
+
+    if start_shift not in (1, 2, 3):
+        raise HTTPException(status_code=400, detail="Зміна має бути 1, 2 або 3")
+
+    try:
+        from datetime import date
+        start_week = date.fromisoformat(start_week)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="Некоректна дата тижня")
+
+    return await set_schedule_settings(start_week, start_shift)
 
 # =========================
 # Telegram Bot

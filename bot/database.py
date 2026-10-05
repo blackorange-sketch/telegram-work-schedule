@@ -76,6 +76,44 @@ async def get_workers():
 
         return [dict(row) for row in rows]
 
+async def get_schedule_settings():
+    async with _pool.acquire() as conn:
+        row = await conn.fetchrow("""
+            SELECT id, start_week, start_shift
+            FROM schedule_settings
+            WHERE id = 1
+        """)
+        return dict(row) if row else None
+
+
+async def set_schedule_settings(start_week, start_shift: int):
+    async with _pool.acquire() as conn:
+        row = await conn.fetchrow("""
+            INSERT INTO schedule_settings (id, start_week, start_shift)
+            VALUES (1, $1, $2)
+            ON CONFLICT (id) DO UPDATE SET
+                start_week = EXCLUDED.start_week,
+                start_shift = EXCLUDED.start_shift
+            RETURNING id, start_week, start_shift
+        """, start_week, start_shift)
+        return dict(row)
+
+
+async def get_shift_for_week(week_start):
+    async with _pool.acquire() as conn:
+        row = await conn.fetchrow("""
+            SELECT start_week, start_shift
+            FROM schedule_settings
+            WHERE id = 1
+        """)
+
+        if not row:
+            return None
+
+        weeks_diff = (week_start - row["start_week"]).days // 7
+        return ((row["start_shift"] - 1 - weeks_diff) % 3) + 1
+
+
 
 async def update_worker(
     worker_id: int,
