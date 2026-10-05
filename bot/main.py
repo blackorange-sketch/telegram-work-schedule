@@ -1,7 +1,7 @@
 import asyncio
 import os
 
-from aiogram import Bot, Dispatcher, F
+from aiogram import Bot, Dispatcher
 from aiogram.filters import CommandStart
 from aiogram.types import (
     BotCommand,
@@ -13,11 +13,13 @@ from aiogram.types import (
 
 from dotenv import load_dotenv
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 import uvicorn
+
+from bot.database import init_db, get_workers, update_worker
 
 
 load_dotenv()
@@ -43,6 +45,48 @@ app.mount(
 @app.get("/")
 async def index():
     return FileResponse("web/index.html")
+
+
+# =========================
+# Workers API
+# =========================
+
+@app.get("/api/workers")
+async def workers_list():
+    return await get_workers()
+
+
+@app.put("/api/workers/{worker_id}")
+async def worker_update(worker_id: int, data: dict):
+    name = str(data.get("name", "")).strip()
+
+    if not name:
+        raise HTTPException(
+            status_code=400,
+            detail="Ім'я не може бути порожнім",
+        )
+
+    if len(name) > 100:
+        raise HTTPException(
+            status_code=400,
+            detail="Ім'я занадто довге",
+        )
+
+    workers = await get_workers()
+
+    if not any(worker["id"] == worker_id for worker in workers):
+        raise HTTPException(
+            status_code=404,
+            detail="Працівника не знайдено",
+        )
+
+    await update_worker(worker_id, name)
+
+    return {
+        "success": True,
+        "id": worker_id,
+        "name": name,
+    }
 
 
 # =========================
@@ -129,6 +173,12 @@ async def run_web():
 async def main():
     if not TOKEN:
         raise RuntimeError("BOT_TOKEN не знайдено")
+
+    print("Підключення до PostgreSQL...")
+
+    await init_db()
+
+    print("PostgreSQL підключено.")
 
     await asyncio.gather(
         run_bot(),
