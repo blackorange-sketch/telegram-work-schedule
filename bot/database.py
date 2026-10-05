@@ -44,6 +44,7 @@ async def init_db():
         await conn.execute("""
             CREATE TABLE IF NOT EXISTS schedule_assignments (
                 id SERIAL PRIMARY KEY,
+                shift INTEGER NOT NULL CHECK (shift BETWEEN 1 AND 3),
                 week_id INTEGER NOT NULL REFERENCES schedule_weeks(id) ON DELETE CASCADE,
                 work_date DATE NOT NULL,
                 worker_id INTEGER NOT NULL REFERENCES workers(id),
@@ -52,6 +53,8 @@ async def init_db():
                 UNIQUE (week_id, work_date, station)
             )
         """)
+
+
 
 
         count = await conn.fetchval(
