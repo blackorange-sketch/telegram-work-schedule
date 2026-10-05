@@ -592,3 +592,24 @@ main {
     border-radius: 10px;
     font-size: 15px;
 }
+
+main {
+    padding-bottom: 90px;
+}
+
+.workers-card {
+    margin-bottom: 20px;
+}
+
+.add-worker-button {
+    position: relative;
+    z-index: 2;
+}
+
+main {
+    padding-bottom: 100px !important;
+}
+
+.bottom-nav {
+    z-index: 100;
+}
