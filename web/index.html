@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0, viewport-fit=cover"
+    >
+
+    <title>Розклад</title>
+
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+
+<body>
+
+<div class="app">
+
+    <header class="header">
+        <div>
+            <div class="title">Розклад</div>
+            <div class="subtitle">6–10 жовтня 2026</div>
+        </div>
+
+        <div class="profile">
+            👤
+        </div>
+    </header>
+
+    <main>
+
+        <section class="week-selector">
+            <button>‹</button>
+            <div>
+                <strong>Поточний тиждень</strong>
+                <span>Пн — Пт</span>
+            </div>
+            <button>›</button>
+        </section>
+
+        <section class="schedule-card">
+
+            <div class="card-header">
+                <span>Працівники</span>
+                <span>Станція</span>
+            </div>
+
+            <div class="worker">
+                <div>
+                    <strong>Андрій</strong>
+                    <small>06:00–14:00</small>
+                </div>
+                <div class="station">15</div>
+            </div>
+
+            <div class="worker">
+                <div>
+                    <strong>Олег</strong>
+                    <small>06:00–14:00</small>
+                </div>
+                <div class="station">16</div>
+            </div>
+
+            <div class="worker">
+                <div>
+                    <strong>Іван</strong>
+                    <small>06:00–14:00</small>
+                </div>
+                <div class="station">17</div>
+            </div>
+
+            <div class="worker">
+                <div>
+                    <strong>Петро</strong>
+                    <small>06:00–14:00</small>
+                </div>
+                <div class="station">18</div>
+            </div>
+
+        </section>
+
+        <section class="reserve-card">
+            <div class="section-title">🔄 Резерв</div>
+
+            <div class="reserve-workers">
+                <span>Микола</span>
+                <span>Сергій</span>
+            </div>
+        </section>
+
+        <section class="lunch-card">
+            <div class="section-title">🍽 Обіди</div>
+
+            <div class="lunch-row">
+                <span>Андрій + Олег</span>
+                <strong>17:00</strong>
+            </div>
+
+            <div class="lunch-row">
+                <span>Іван + Петро</span>
+                <strong>17:30</strong>
+            </div>
+        </section>
+
+    </main>
+
+    <nav class="bottom-nav">
+        <button class="active">📅<span>Розклад</span></button>
+        <button>👥<span>Люди</span></button>
+        <button>⚙️<span>Налаштування</span></button>
+    </nav>
+
+</div>
+
+<script>
+    const tg = window.Telegram.WebApp;
+
+    tg.ready();
+    tg.expand();
+</script>
+
+</body>
+</html>
