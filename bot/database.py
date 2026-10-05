@@ -54,15 +54,17 @@ async def update_worker(
     name: str,
 ):
     async with _pool.acquire() as conn:
-        await conn.execute(
+        row = await conn.fetchrow(
             """
             UPDATE workers
             SET name = $1
             WHERE id = $2
+            RETURNING id, name, active, is_reserve, reserve_number
             """,
             name,
             worker_id,
         )
+        return dict(row) if row else None
 
 async def add_worker(name: str):
     async with _pool.acquire() as conn:
