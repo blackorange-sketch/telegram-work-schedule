@@ -25,6 +25,34 @@ async def init_db():
             )
         """)
         await conn.execute("ALTER TABLE workers ADD COLUMN IF NOT EXISTS active BOOLEAN NOT NULL DEFAULT TRUE")
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS schedule_settings (
+                id INTEGER PRIMARY KEY CHECK (id = 1),
+                start_week DATE NOT NULL,
+                start_shift INTEGER NOT NULL CHECK (start_shift IN (1, 2, 3))
+            )
+        """)
+
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS schedule_weeks (
+                id SERIAL PRIMARY KEY,
+                week_start DATE NOT NULL UNIQUE,
+                generated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            )
+        """)
+
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS schedule_assignments (
+                id SERIAL PRIMARY KEY,
+                week_id INTEGER NOT NULL REFERENCES schedule_weeks(id) ON DELETE CASCADE,
+                work_date DATE NOT NULL,
+                worker_id INTEGER NOT NULL REFERENCES workers(id),
+                station INTEGER NOT NULL CHECK (station BETWEEN 15 AND 24),
+                UNIQUE (week_id, work_date, worker_id),
+                UNIQUE (week_id, work_date, station)
+            )
+        """)
+
 
         count = await conn.fetchval(
             "SELECT COUNT(*) FROM workers"
