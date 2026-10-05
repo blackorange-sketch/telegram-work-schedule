@@ -5,171 +5,315 @@
     --secondary: #777777;
     --border: #e5e5e5;
     --accent: #2481cc;
+
+    --telegram-bg: var(--tg-theme-bg-color, #f2f2f7);
+    --telegram-text: var(--tg-theme-text-color, #171717);
 }
 
 * {
     box-sizing: border-box;
 }
 
+html,
 body {
     margin: 0;
+    padding: 0;
+
+    width: 100%;
+    min-height: 100%;
+
     font-family:
         -apple-system,
         BlinkMacSystemFont,
         "Segoe UI",
         sans-serif;
 
-    background: var(--bg);
-    color: var(--text);
+    background: var(--telegram-bg);
+    color: var(--telegram-text);
+}
+
+body {
+    overflow-x: hidden;
+}
+
+button {
+    font-family: inherit;
 }
 
 .app {
     min-height: 100vh;
-    padding-bottom: 80px;
+    padding-bottom: 78px;
 }
+
+
+/* =========================
+   HEADER
+   ========================= */
 
 .header {
     display: flex;
-    justify-content: space-between;
     align-items: center;
+    justify-content: space-between;
 
-    padding: 20px 18px 16px;
+    padding:
+        calc(14px + env(safe-area-inset-top))
+        16px
+        14px;
 
     background: var(--card);
+
+    border-bottom: 1px solid var(--border);
 }
 
 .title {
-    font-size: 28px;
+    font-size: 26px;
     font-weight: 700;
 }
 
-.subtitle {
-    margin-top: 4px;
-    color: var(--secondary);
+.week {
+    margin-top: 3px;
+
     font-size: 14px;
+    color: var(--secondary);
 }
 
-.profile {
+.icon-button {
     width: 42px;
     height: 42px;
 
-    display: flex;
-    align-items: center;
-    justify-content: center;
-
+    border: 0;
     border-radius: 50%;
+
     background: var(--bg);
+
     font-size: 20px;
 }
 
-main {
-    padding: 12px;
-}
 
-.week-selector {
+/* =========================
+   WEEK NAVIGATION
+   ========================= */
+
+.week-navigation {
     display: flex;
     align-items: center;
     justify-content: space-between;
 
-    padding: 12px;
+    margin: 12px;
 
-    margin-bottom: 12px;
+    padding: 8px;
 
     background: var(--card);
+
     border-radius: 16px;
 }
 
-.week-selector div {
-    text-align: center;
-}
+.week-navigation button {
+    width: 42px;
+    height: 42px;
 
-.week-selector strong {
-    display: block;
-    font-size: 15px;
-}
-
-.week-selector span {
-    display: block;
-    margin-top: 3px;
-    font-size: 13px;
-    color: var(--secondary);
-}
-
-.week-selector button {
     border: 0;
-    background: transparent;
-
-    font-size: 28px;
-    color: var(--accent);
-
-    width: 40px;
-    height: 40px;
-}
-
-.schedule-card,
-.reserve-card,
-.lunch-card {
-    background: var(--card);
-    border-radius: 16px;
-
-    margin-bottom: 12px;
-    overflow: hidden;
-}
-
-.card-header {
-    display: flex;
-    justify-content: space-between;
-
-    padding: 14px 16px;
-
-    color: var(--secondary);
-    font-size: 13px;
-
-    border-bottom: 1px solid var(--border);
-}
-
-.worker {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-
-    padding: 14px 16px;
-
-    border-bottom: 1px solid var(--border);
-}
-
-.worker:last-child {
-    border-bottom: 0;
-}
-
-.worker strong {
-    display: block;
-    font-size: 16px;
-}
-
-.worker small {
-    display: block;
-    margin-top: 3px;
-    color: var(--secondary);
-}
-
-.station {
-    width: 44px;
-    height: 44px;
-
-    display: flex;
-    align-items: center;
-    justify-content: center;
-
     border-radius: 12px;
 
     background: var(--bg);
 
-    font-size: 18px;
+    color: var(--accent);
+
+    font-size: 28px;
+}
+
+.week-center {
+    text-align: center;
+}
+
+.week-center strong {
+    display: block;
+    font-size: 15px;
+}
+
+.week-center span {
+    display: block;
+
+    margin-top: 3px;
+
+    font-size: 12px;
+    color: var(--secondary);
+}
+
+
+/* =========================
+   MAIN
+   ========================= */
+
+main {
+    padding: 0 12px;
+}
+
+
+/* =========================
+   SCHEDULE TABLE
+   ========================= */
+
+.schedule-wrapper {
+    background: var(--card);
+
+    border-radius: 16px;
+
+    overflow: hidden;
+
+    margin-bottom: 12px;
+}
+
+.table-scroll {
+    width: 100%;
+
+    overflow-x: auto;
+    overflow-y: hidden;
+
+    -webkit-overflow-scrolling: touch;
+}
+
+.schedule {
+    width: max-content;
+    min-width: 100%;
+
+    border-collapse: separate;
+    border-spacing: 0;
+
+    font-size: 14px;
+}
+
+.schedule th,
+.schedule td {
+    height: 58px;
+
+    padding: 8px 10px;
+
+    text-align: center;
+
+    border-right: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+
+    white-space: nowrap;
+}
+
+.schedule th {
+    height: 46px;
+
+    background: #f8f8fa;
+
+    font-size: 13px;
+    font-weight: 600;
+
+    position: sticky;
+    top: 0;
+
+    z-index: 3;
+}
+
+.schedule td {
+    background: var(--card);
+}
+
+
+/* NAME COLUMN */
+
+.name-column {
+    width: 120px;
+    min-width: 120px;
+    max-width: 120px;
+
+    text-align: left !important;
+
+    position: sticky;
+    left: 0;
+
+    z-index: 4;
+
+    background: var(--card) !important;
+}
+
+.schedule th.name-column {
+    background: #f8f8fa !important;
+    z-index: 6;
+}
+
+.name {
+    text-align: left !important;
+
+    font-weight: 600;
+}
+
+
+/* DAYS */
+
+.schedule th:not(.name-column):not(.lunch-column),
+.schedule td:not(.name-column):not(.lunch-column) {
+    width: 62px;
+    min-width: 62px;
+}
+
+
+/* STATION */
+
+.station {
+    display: inline-flex;
+
+    align-items: center;
+    justify-content: center;
+
+    width: 40px;
+    height: 40px;
+
+    border-radius: 11px;
+
+    background: var(--bg);
+
+    font-size: 16px;
     font-weight: 700;
 }
 
-.section-title {
+
+/* LUNCH */
+
+.lunch-column {
+    width: 76px;
+    min-width: 76px;
+
+    position: sticky;
+    right: 0;
+
+    z-index: 4;
+
+    background: var(--card) !important;
+}
+
+.schedule th.lunch-column {
+    background: #f8f8fa !important;
+    z-index: 6;
+}
+
+.lunch {
+    font-weight: 600;
+    color: var(--accent);
+}
+
+
+/* =========================
+   CARDS
+   ========================= */
+
+.card {
+    margin-bottom: 12px;
+
+    background: var(--card);
+
+    border-radius: 16px;
+
+    overflow: hidden;
+}
+
+.card-title {
     padding: 14px 16px;
 
     font-weight: 700;
@@ -177,40 +321,111 @@ main {
     border-bottom: 1px solid var(--border);
 }
 
-.reserve-workers {
+
+/* RESERVE */
+
+.reserve-list {
     display: flex;
     gap: 8px;
 
-    padding: 14px 16px;
+    padding: 12px;
 }
 
-.reserve-workers span {
-    padding: 8px 12px;
+.reserve-person {
+    flex: 1;
 
-    border-radius: 10px;
+    padding: 12px;
+
+    border-radius: 12px;
 
     background: var(--bg);
 }
 
-.lunch-row {
-    display: flex;
-    justify-content: space-between;
+.reserve-person span {
+    display: block;
 
-    padding: 14px 16px;
+    font-weight: 600;
+}
+
+.reserve-person small {
+    display: block;
+
+    margin-top: 3px;
+
+    color: var(--secondary);
+}
+
+
+/* SHIFTS */
+
+.shift-list {
+    display: flex;
+
+    flex-direction: column;
+}
+
+.shift {
+    display: flex;
+    align-items: center;
+
+    gap: 12px;
+
+    padding: 12px 16px;
 
     border-bottom: 1px solid var(--border);
 }
 
-.lunch-row:last-child {
+.shift:last-child {
     border-bottom: 0;
 }
 
-.lunch-row strong {
-    color: var(--accent);
+.shift-number {
+    width: 38px;
+    height: 38px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    border-radius: 10px;
+
+    color: white;
+
+    font-weight: 700;
 }
+
+.shift-1 {
+    background: #39a86b;
+}
+
+.shift-2 {
+    background: #e69b2f;
+}
+
+.shift-3 {
+    background: #5377c9;
+}
+
+.shift strong {
+    display: block;
+}
+
+.shift small {
+    display: block;
+
+    margin-top: 2px;
+
+    color: var(--secondary);
+}
+
+
+/* =========================
+   BOTTOM NAV
+   ========================= */
 
 .bottom-nav {
     position: fixed;
+
     left: 0;
     right: 0;
     bottom: 0;
@@ -218,13 +433,21 @@ main {
     display: flex;
     justify-content: space-around;
 
-    padding: 8px 8px calc(8px + env(safe-area-inset-bottom));
+    padding:
+        8px
+        6px
+        calc(8px + env(safe-area-inset-bottom));
 
     background: var(--card);
+
     border-top: 1px solid var(--border);
+
+    z-index: 20;
 }
 
 .bottom-nav button {
+    flex: 1;
+
     border: 0;
     background: transparent;
 
@@ -235,14 +458,86 @@ main {
     align-items: center;
 
     gap: 3px;
-
-    font-size: 20px;
 }
 
 .bottom-nav button span {
-    font-size: 11px;
+    font-size: 20px;
+}
+
+.bottom-nav button small {
+    font-size: 10px;
 }
 
 .bottom-nav button.active {
     color: var(--accent);
 }
+
+
+/* =========================
+   SMALL PHONES
+   ========================= */
+
+@media (max-width: 380px) {
+
+    .name-column {
+        width: 105px;
+        min-width: 105px;
+        max-width: 105px;
+    }
+
+    .schedule th,
+    .schedule td {
+        padding-left: 7px;
+        padding-right: 7px;
+    }
+
+}
+
+/* Працівники */
+
+.workers-card {
+    overflow: hidden;
+}
+
+.worker-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 58px;
+    padding: 8px 12px 8px 16px;
+    border-bottom: 1px solid var(--border);
+}
+
+.worker-name {
+    font-size: 16px;
+    font-weight: 600;
+}
+
+
+.worker-actions {
+    display: flex;
+    gap: 6px;
+}
+
+.worker-actions button {
+    width: 40px;
+    height: 40px;
+    border: 0;
+    border-radius: 10px;
+    background: var(--bg);
+    font-size: 17px;
+}
+
+
+.add-worker-button {
+    width: calc(100% - 24px);
+    margin: 12px;
+    padding: 13px;
+    border: 0;
+    border-radius: 12px;
+    background: var(--accent);
+    color: white;
+    font-size: 15px;
+    font-weight: 600;
+}
+
