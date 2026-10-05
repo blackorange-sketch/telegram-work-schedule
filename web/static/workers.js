@@ -18,7 +18,7 @@ async function loadWorkers() {
         const response = await fetch("/api/workers?t=" + Date.now());
         const workers = await response.json();
 
-        renderWorkers(workers);
+        alert("Працівників отримано: " + workers.length + "\n" + JSON.stringify(workers)); renderWorkers(workers);
     } catch (error) {
         list.textContent = "Не вдалося завантажити працівників";
     }
