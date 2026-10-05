@@ -6,8 +6,6 @@
     --border: #e5e5e5;
     --accent: #2481cc;
 
-    --telegram-bg: var(--tg-theme-bg-color, #f2f2f7);
-    --telegram-text: var(--tg-theme-text-color, #171717);
 }
 
 * {
@@ -28,8 +26,8 @@ body {
         "Segoe UI",
         sans-serif;
 
-    background: var(--telegram-bg);
-    color: var(--telegram-text);
+    background: var(--bg);
+    color: var(--text);
 }
 
 body {
