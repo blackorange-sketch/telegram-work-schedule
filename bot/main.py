@@ -19,7 +19,13 @@ from fastapi.staticfiles import StaticFiles
 
 import uvicorn
 
-from bot.database import init_db, get_workers, update_worker
+from bot.database import (
+    init_db,
+    get_workers,
+    add_worker,
+    update_worker,
+    deactivate_worker,
+)
 
 
 load_dotenv()
@@ -56,6 +62,25 @@ async def workers_list():
     return await get_workers()
 
 
+@app.post("/api/workers")
+async def workers_add(data: dict):
+    name = str(data.get("name", "")).strip()
+
+    if not name:
+        raise HTTPException(
+            status_code=400,
+            detail="Ім'я не може бути порожнім",
+        )
+
+    if len(name) > 100:
+        raise HTTPException(
+            status_code=400,
+            detail="Ім'я занадто довге",
+        )
+
+    return await add_worker(name)
+
+
 @app.put("/api/workers/{worker_id}")
 async def worker_update(worker_id: int, data: dict):
     name = str(data.get("name", "")).strip()
@@ -72,21 +97,28 @@ async def worker_update(worker_id: int, data: dict):
             detail="Ім'я занадто довге",
         )
 
-    workers = await get_workers()
+    worker = await update_worker(worker_id, name)
 
-    if not any(worker["id"] == worker_id for worker in workers):
+    if not worker:
         raise HTTPException(
             status_code=404,
             detail="Працівника не знайдено",
         )
 
-    await update_worker(worker_id, name)
+    return worker
 
-    return {
-        "success": True,
-        "id": worker_id,
-        "name": name,
-    }
+
+@app.delete("/api/workers/{worker_id}")
+async def worker_delete(worker_id: int):
+    worker = await deactivate_worker(worker_id)
+
+    if not worker:
+        raise HTTPException(
+            status_code=404,
+            detail="Працівника не знайдено",
+        )
+
+    return worker
 
 
 # =========================
