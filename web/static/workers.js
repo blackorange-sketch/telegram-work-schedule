@@ -15,7 +15,7 @@ async function loadWorkers() {
     const list = document.getElementById("workersList");
 
     try {
-        const response = await fetch("/api/workers");
+        const response = await fetch("/api/workers?t=" + Date.now());
         const workers = await response.json();
 
         renderWorkers(workers);
