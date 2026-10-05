@@ -2,6 +2,7 @@ const tg = window.Telegram.WebApp;
 
 tg.ready();
 tg.expand();
+const scheduleTemplate = document.querySelector("main").innerHTML;
 
 const workers = [
     { name: "Андрій", stations: [15, 16, 17, 18, 19], lunch: "10:00" },
@@ -67,15 +68,39 @@ function updateWeek() {
     }
 }
 
-document.getElementById("prevWeek").addEventListener("click", () => {
-    weekOffset--;
-    updateWeek();
-});
 
-document.getElementById("nextWeek").addEventListener("click", () => {
-    weekOffset++;
-    updateWeek();
-});
 
 const navButtons = document.querySelectorAll(".bottom-nav button");
-navButtons[1].addEventListener("click", showWorkersScreen);
+navButtons[1].addEventListener("click", () => {
+    showWorkersScreen();
+    setActiveNav(1);
+});
+
+function showScheduleScreen() {
+    const main = document.querySelector("main");
+    main.innerHTML = scheduleTemplate;
+    renderSchedule();
+    bindScheduleButtons();
+}
+function bindScheduleButtons() {
+    document.getElementById("prevWeek").onclick = () => {
+        weekOffset--;
+        updateWeek();
+    };
+
+    document.getElementById("nextWeek").onclick = () => {
+        weekOffset++;
+        updateWeek();
+    };
+}
+
+navButtons[0].addEventListener("click", () => {
+    showScheduleScreen();
+    setActiveNav(0);
+});
+
+function setActiveNav(index) {
+    navButtons.forEach((button, i) => {
+        button.classList.toggle("active", i === index);
+    });
+}
