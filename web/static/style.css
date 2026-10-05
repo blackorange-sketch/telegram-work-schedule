@@ -541,3 +541,54 @@ main {
     font-weight: 600;
 }
 
+
+.worker-modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.45);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+}
+
+.worker-modal.hidden {
+    display: none;
+}
+
+.worker-modal-box {
+    width: calc(100% - 32px);
+    max-width: 400px;
+    padding: 20px;
+    border-radius: 16px;
+    background: var(--card);
+}
+
+.worker-modal-title {
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 14px;
+}
+
+.worker-modal-box input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 13px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    font-size: 16px;
+}
+
+.worker-modal-buttons {
+    display: flex;
+    gap: 8px;
+    margin-top: 14px;
+}
+
+.worker-modal-buttons button {
+    flex: 1;
+    padding: 12px;
+    border: 0;
+    border-radius: 10px;
+    font-size: 15px;
+}

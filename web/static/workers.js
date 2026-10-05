@@ -5,7 +5,7 @@ function showWorkersScreen() {
         <section class="card workers-card">
             <div class="card-title">👥 Працівники</div>
             <div id="workersList"></div><button id="addWorkerButton" class="add-worker-button">＋ Додати працівника</button>
-        </section>
+        <div id="workerModal" class="worker-modal hidden"><div class="worker-modal-box"><div class="worker-modal-title">Новий працівник</div><input id="workerNameInput" type="text" placeholder="Імʼя працівника"><div class="worker-modal-buttons"><button id="cancelWorkerButton">Скасувати</button><button id="saveWorkerButton">Додати</button></div></div></div></section>
     `;
     loadWorkers();
     setupWorkerButtons();
@@ -34,34 +34,133 @@ function renderWorkers(workers) {
 
         row.innerHTML = `
             <span class="worker-name">${worker.name}</span>
+            <div class="worker-actions">
+                <button onclick="editWorker(${worker.id}, ${JSON.stringify(worker.name)})">✏️</button>
+                <button onclick="deleteWorker(${worker.id})">🗑</button>
+            </div>
         `;
 
-        list.appendChild(row);
-    });
-}
-
 function setupWorkerButtons() {
-    const button = document.getElementById("addWorkerButton");
+    const addButton = document.getElementById("addWorkerButton");
+    const cancelButton = document.getElementById("cancelWorkerButton");
+    const saveButton = document.getElementById("saveWorkerButton");
+    const modal = document.getElementById("workerModal");
+    const input = document.getElementById("workerNameInput");
 
-    button.addEventListener("click", addWorker);
+    addButton.onclick = () => {
+        modal.classList.remove("hidden");
+        input.value = "";
+        input.focus();
+        saveButton.onclick = addWorker;
+    input.onkeydown = (event) => {
+        if (event.key === "Enter") {
+            saveButton.click();
+        }
+    };
+    };
+
+    modal.onclick = (event) => {
+        if (event.target === modal) {
+            modal.classList.add("hidden");
+        }
+    };
+    cancelButton.onclick = () => {
+        modal.classList.add("hidden");
+    };
+
+    saveButton.onclick = addWorker;
+    input.onkeydown = (event) => {
+        if (event.key === "Enter") {
+            saveButton.click();
+        }
+    };
+}
+    });
+
 }
 
 async function addWorker() {
-    const name = prompt("Ім'я працівника:");
+    const modal = document.getElementById("workerModal");
+    const input = document.getElementById("workerNameInput");
+    const name = input.value.trim();
 
-    if (!name || !name.trim()) {
+    if (!name) {
+        input.focus();
         return;
     }
 
-    await fetch("/api/workers", {
+    const response = await fetch("/api/workers", {
         method: "POST",
         headers: {
             "Content-Type": "application/json"
         },
         body: JSON.stringify({
-            name: name.trim()
+            name: name
         })
     });
+
+    if (!response.ok) {
+        alert("Не вдалося додати працівника");
+        return;
+    }
+
+    modal.classList.add("hidden");
+    input.value = "";
+    await loadWorkers();
+}
+
+async function editWorker(id, oldName) {
+    const modal = document.getElementById("workerModal");
+    const input = document.getElementById("workerNameInput");
+    const saveButton = document.getElementById("saveWorkerButton");
+
+    modal.classList.remove("hidden");
+    input.value = oldName;
+    input.focus();
+    input.select();
+
+    saveButton.onclick = async () => {
+        const name = input.value.trim();
+
+        if (!name) {
+            input.focus();
+            return;
+        }
+
+        const response = await fetch(`/api/workers/${id}`, {
+            method: "PUT",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                name: name
+            })
+        });
+
+        if (!response.ok) {
+            alert("Не вдалося змінити імʼя");
+            return;
+        }
+
+        modal.classList.add("hidden");
+        input.value = "";
+        await loadWorkers();
+    };
+}
+
+async function deleteWorker(id) {
+    if (!confirm("Деактивувати цього працівника?")) {
+        return;
+    }
+
+    const response = await fetch(`/api/workers/${id}`, {
+        method: "DELETE"
+    });
+
+    if (!response.ok) {
+        alert("Не вдалося деактивувати працівника");
+        return;
+    }
 
     await loadWorkers();
 }
