@@ -724,7 +724,10 @@ async function exportScheduleImage(mode) {
             return;
         }
 
-        const fileName = `schedule-${formatDate(getWeekStart())}.png`;
+        const weekStart = getWeekStart();
+        const weekEnd = new Date(weekStart);
+        weekEnd.setDate(weekEnd.getDate() + 6);
+        const fileName = `${formatDate(weekStart)}_${formatDate(weekEnd).slice(5)}.png`;
 
         if (mode === "save") {
             const uploadResponse = await fetch("/api/export/schedule", {
