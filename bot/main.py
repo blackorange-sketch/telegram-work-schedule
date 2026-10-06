@@ -36,6 +36,7 @@ from bot.database import (
     generate_schedule_assignments,
     set_schedule_assignment,
     delete_schedule_assignment,
+    delete_schedule_assignments_for_week,
     get_lunch_settings,
     set_lunch_setting,
 
@@ -354,6 +355,8 @@ async def schedule_generate(data: dict):
         )
 
     week = await get_or_create_schedule_week(week_start)
+
+    await delete_schedule_assignments_for_week(week["id"])
 
     generated = await generate_schedule_assignments(
         week["id"],

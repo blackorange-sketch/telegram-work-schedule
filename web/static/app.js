@@ -569,6 +569,16 @@ function bindScheduleButtons() {
             }
         }
 
+        if (scheduleAssignments.length > 0) {
+            const confirmed = confirm(
+                "Для цього тижня розклад уже існує.\n\nТочно згенерувати повторно? Поточні призначення буде замінено."
+            );
+
+            if (!confirmed) {
+                return;
+            }
+        }
+
         const response = await fetch("/api/schedule/generate", {
             method: "POST",
             headers: {

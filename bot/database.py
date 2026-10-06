@@ -442,6 +442,15 @@ async def set_schedule_assignment(
             return dict(row) if row else None
 
 
+async def delete_schedule_assignments_for_week(week_id: int):
+    async with _pool.acquire() as conn:
+        result = await conn.execute("""
+            DELETE FROM schedule_assignments
+            WHERE week_id = $1
+        """, week_id)
+        return result
+
+
 async def delete_schedule_assignment(
     week_id: int,
     work_date,
