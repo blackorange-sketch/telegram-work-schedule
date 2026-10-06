@@ -991,17 +991,7 @@ main {
 }
 
 .lunch-time-wheel::after {
-    content: "";
-    position: absolute;
-    z-index: 10;
-    left: 6px;
-    right: 6px;
-    top: 70px;
-    height: 40px;
-    border-top: 2px solid var(--accent);
-    border-bottom: 2px solid var(--accent);
-    border-radius: 8px;
-    pointer-events: none;
+    content: none;
 }
 
 .lunch-time-wheel-spacer {
@@ -1034,4 +1024,31 @@ main {
     color: var(--text);
     font-size: 22px;
     font-weight: 700;
+}
+
+.lunch-time-frame {
+    position: relative;
+    width: 86px;
+    height: 180px;
+    overflow: hidden;
+    border-radius: 12px;
+}
+
+.lunch-time-frame::after {
+    content: "";
+    position: absolute;
+    z-index: 10;
+    left: 6px;
+    right: 6px;
+    top: 70px;
+    height: 40px;
+    border-top: 2px solid var(--accent);
+    border-bottom: 2px solid var(--accent);
+    border-radius: 8px;
+    pointer-events: none;
+}
+
+.lunch-time-frame .lunch-time-wheel {
+    width: 100%;
+    height: 100%;
 }

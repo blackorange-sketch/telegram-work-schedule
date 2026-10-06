@@ -663,6 +663,12 @@ function openLunchTimeModal(button) {
     const picker = document.createElement("div");
     picker.className = "lunch-time-picker";
 
+    const hourFrame = document.createElement("div");
+    hourFrame.className = "lunch-time-frame";
+
+    const minuteFrame = document.createElement("div");
+    minuteFrame.className = "lunch-time-frame";
+
     const hourWheel = document.createElement("div");
     hourWheel.className = "lunch-time-wheel";
 
@@ -707,7 +713,10 @@ function openLunchTimeModal(button) {
     separator.className = "lunch-time-separator";
     separator.textContent = ":";
 
-    picker.append(hourWheel, separator, minuteWheel);
+    hourFrame.appendChild(hourWheel);
+    minuteFrame.appendChild(minuteWheel);
+
+    picker.append(hourFrame, separator, minuteFrame);
     content.appendChild(picker);
 
     const hourIndex = Math.max(0, Math.min(23, currentHour));
