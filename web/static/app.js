@@ -703,16 +703,18 @@ async function exportScheduleImage(mode) {
             ctx.strokeRect(x, y, width, rowHeight);
 
             ctx.fillStyle = "#111827";
-            ctx.font = rowIndex === 0 ? "bold 20px sans-serif" : "bold 28px sans-serif";
+            ctx.font = rowIndex === 0 ? "bold 20px sans-serif" : "bold 22px sans-serif";
 
             const text = cell.textContent.trim();
             const lines = text.split(/\n+/).map(line => line.trim()).filter(Boolean);
 
             lines.slice(0, 2).forEach((line, index) => {
-                ctx.fillText(line, x + 10, y + 25 + index * 32);
+                ctx.textAlign = columnIndex === 0 ? "left" : "center";
+            ctx.fillText(line, columnIndex === 0 ? x + 10 : x + width / 2, y + 32 + index * 22);
             });
 
-            x += width;
+            ctx.textAlign = "left";
+        x += width;
         });
 
         y += rowHeight;
