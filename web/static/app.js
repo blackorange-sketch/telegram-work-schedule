@@ -1,3 +1,4 @@
+window.addEventListener("error", e => console.error("GLOBAL ERROR:", e.error || e.message)); window.addEventListener("unhandledrejection", e => console.error("GLOBAL PROMISE ERROR:", e.reason));
 const tg = window.Telegram.WebApp;
 
 tg.ready();
@@ -7,11 +8,15 @@ if (tg.setHeaderColor) {
 }
 
 if (tg.setBackgroundColor) {
-    tg.setBackgroundColor("#f8f8fa");
-}
 if (tg.requestFullscreen) {
-    tg.requestFullscreen();
+    try {
+        tg.requestFullscreen();
+    } catch (error) {
+        tg.expand();
+    }
 } else {
+    tg.expand();
+}
     tg.expand();
 }
 
