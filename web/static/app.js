@@ -53,6 +53,7 @@ async function loadWorkerDaysOff() {
     }
 
     const data = await response.json();
+        alert("Prepared ID: " + data.prepared_message_id);
     workerDaysOff = data.days_off;
 }
 
@@ -68,6 +69,7 @@ async function loadScheduleAssignments() {
     }
 
     const data = await response.json();
+        alert("Prepared ID: " + data.prepared_message_id);
     scheduleAssignments = data.assignments;
     scheduleReserves = data.reserves || [];
 }
@@ -607,6 +609,7 @@ async function loadScheduleWorkers() {
         return;
     }
     const data = await response.json();
+        alert("Prepared ID: " + data.prepared_message_id);
     workers = data;
 }
 
@@ -621,6 +624,7 @@ async function loadScheduleDays() {
     }
 
     const data = await response.json();
+        alert("Prepared ID: " + data.prepared_message_id);
     scheduleDays = data.days;
 }
 
@@ -635,6 +639,7 @@ async function loadScheduleShift() {
     }
 
     const data = await response.json();
+        alert("Prepared ID: " + data.prepared_message_id);
     scheduleShift = data.shift;
 }
 
@@ -794,6 +799,7 @@ async function exportScheduleImage(mode) {
                 }
 
                 const data = await response.json();
+        alert("Prepared ID: " + data.prepared_message_id);
 
                 tg.shareMessage(
                     data.prepared_message_id,
