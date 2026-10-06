@@ -1,6 +1,24 @@
 console.log("APP.JS START", Date.now());
 const tg = window.Telegram.WebApp;
 
+const originalFetch = window.fetch.bind(window);
+
+window.fetch = (input, init = {}) => {
+    const url = typeof input === "string" ? input : input.url;
+
+    if (url.includes("/api/")) {
+        const headers = new Headers(init.headers || {});
+
+        if (!headers.has("X-Telegram-Init-Data")) {
+            headers.set("X-Telegram-Init-Data", tg.initData || "");
+        }
+
+        init.headers = headers;
+    }
+
+    return originalFetch(input, init);
+};
+
 async function checkAdminAccess() {
     const response = await fetch("/api/auth/me", {
         headers: {
@@ -9,9 +27,15 @@ async function checkAdminAccess() {
     });
 
     if (!response.ok) {
-        document.body.innerHTML = "<main style=\"padding:24px;font-family:sans-serif;text-align:center\"><h2>Доступ заборонено</h2><p>Цей Mini App доступний лише адміністраторам.</p></main>";
+        const denied = document.createElement("main");
+        denied.style.cssText = "padding:24px;font-family:sans-serif;text-align:center";
+        denied.innerHTML = "<h2>Доступ заборонено</h2><p>Цей Mini App доступний лише адміністраторам.</p>";
+        document.body.appendChild(denied);
+
         throw new Error("Admin access denied");
     }
+
+    document.querySelector(".app").style.display = "";
 
     return await response.json();
 }
