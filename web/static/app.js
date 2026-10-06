@@ -1,7 +1,11 @@
 const tg = window.Telegram.WebApp;
 
 tg.ready();
-tg.expand();
+if (tg.requestFullscreen) {
+    tg.requestFullscreen();
+} else {
+    tg.expand();
+}
 const scheduleTemplate = document.querySelector("main").innerHTML;
 
 let workers = [];
