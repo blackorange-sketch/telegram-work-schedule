@@ -574,7 +574,7 @@ async def share_schedule(request: Request):
 
     data = await request.body()
 
-    if not data.startswith(b"\\x89PNG\\r\\n\\x1a\\n"):
+    if not data.startswith(b"\x89PNG\r\n\x1a\n"):
         raise HTTPException(status_code=400, detail="Очікується PNG")
 
     if len(data) > 10 * 1024 * 1024:
