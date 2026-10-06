@@ -1,6 +1,14 @@
 const tg = window.Telegram.WebApp;
 
 tg.ready();
+
+if (tg.setHeaderColor) {
+    tg.setHeaderColor("#f8f8fa");
+}
+
+if (tg.setBackgroundColor) {
+    tg.setBackgroundColor("#f8f8fa");
+}
 if (tg.requestFullscreen) {
     tg.requestFullscreen();
 } else {
