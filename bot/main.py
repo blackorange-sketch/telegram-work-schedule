@@ -15,7 +15,6 @@ from aiogram.types import (
     InlineKeyboardMarkup,
     WebAppInfo,
     Message,
-    BufferedInputFile,
 )
 
 from dotenv import load_dotenv
@@ -565,36 +564,6 @@ async def export_schedule(request: Request):
         "file_id": file_id,
         "url": f"/api/export/schedule/{file_id}"
     }
-
-
-@app.post("/api/export/share")
-async def share_schedule(request: Request):
-    init_data = request.headers.get("X-Telegram-Init-Data")
-    user = validate_telegram_init_data(init_data)
-
-    if not user:
-        raise HTTPException(status_code=401, detail="Некоректні дані Telegram")
-
-    data = await request.body()
-
-    if not data.startswith(b"\x89PNG\r\n\x1a\n"):
-        raise HTTPException(status_code=400, detail="Очікується PNG")
-
-    if len(data) > 10 * 1024 * 1024:
-        raise HTTPException(status_code=400, detail="Файл завеликий")
-
-    bot = Bot(token=TOKEN)
-
-    try:
-        await bot.send_photo(
-            chat_id=user["id"],
-            photo=BufferedInputFile(data, filename="schedule.png"),
-            caption="📅 Schedule",
-        )
-    finally:
-        await bot.session.close()
-
-    return {"sent": True}
 
 
 @app.get("/api/export/schedule/{file_id}")

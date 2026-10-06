@@ -769,38 +769,26 @@ async function exportScheduleImage(mode) {
         const file = new File([blob], fileName, { type: "image/png" });
 
         if (mode === "share") {
-            const initData = tg.initData;
-
-            if (!initData) {
-                alert("Не вдалося отримати дані Telegram");
-                return;
-            }
-
-            try {
-                const shareResponse = await fetch("/api/export/share", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "image/png",
-                        "X-Telegram-Init-Data": initData
-                    },
-                    body: blob
-                });
-
-                if (!shareResponse.ok) {
-                    const errorData = await shareResponse.json().catch(() => ({}));
-                    alert(errorData.detail || "Не вдалося надіслати зображення");
-                    return;
-                }
-
-                alert("Зображення надіслано в Telegram");
-            } catch (error) {
-                alert("Не вдалося надіслати зображення");
-            }
-
+        if (!navigator.share || !navigator.canShare || !navigator.canShare({ files: [file] })) {
+            alert("Системне поширення зображень не підтримується цією версією Telegram");
             return;
         }
 
-        const url = URL.createObjectURL(blob);
+        try {
+            await navigator.share({
+                files: [file],
+                title: "Schedule"
+            });
+        } catch (error) {
+            if (error?.name !== "AbortError") {
+                alert("Не вдалося відкрити меню поширення");
+            }
+        }
+
+        return;
+    }
+
+    const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.href = url;
         link.download = fileName;
