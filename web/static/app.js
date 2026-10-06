@@ -1,5 +1,5 @@
 console.log("APP.JS START", Date.now());
-const tg = window.Telegram.WebApp;
+const tg = window.Telegram?.WebApp;
 
 const originalFetch = window.fetch.bind(window);
 
