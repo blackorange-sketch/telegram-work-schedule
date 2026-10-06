@@ -717,6 +717,39 @@ async function exportScheduleImage(mode) {
         }
 
         const fileName = `schedule-${formatDate(getWeekStart())}.png`;
+
+        if (mode === "save") {
+            const uploadResponse = await fetch("/api/export/schedule", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "image/png"
+                },
+                body: blob
+            });
+
+            if (!uploadResponse.ok) {
+                alert("Не вдалося підготувати файл");
+                return;
+            }
+
+            const exportData = await uploadResponse.json();
+            const fileUrl = `${window.location.origin}${exportData.url}`;
+
+            if (window.Telegram?.WebApp?.downloadFile) {
+                window.Telegram.WebApp.downloadFile(
+                    {
+                        url: fileUrl,
+                        file_name: fileName
+                    },
+                    () => {}
+                );
+                return;
+            }
+
+            alert("Збереження файлів не підтримується цією версією Telegram");
+            return;
+        }
+
         const file = new File([blob], fileName, { type: "image/png" });
 
         if (mode === "share") {
