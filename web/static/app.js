@@ -1,4 +1,4 @@
-window.addEventListener("error", e => console.error("GLOBAL ERROR:", e.error || e.message)); window.addEventListener("unhandledrejection", e => console.error("GLOBAL PROMISE ERROR:", e.reason));
+window.addEventListener("error", e => alert("JS ERROR: " + (e.error?.stack || e.message))); window.addEventListener("unhandledrejection", e => alert("PROMISE ERROR: " + e.reason));
 const tg = window.Telegram.WebApp;
 
 tg.ready();
