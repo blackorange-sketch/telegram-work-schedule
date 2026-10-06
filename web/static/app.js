@@ -397,7 +397,6 @@ function renderSchedule() {
     }
 }
 
-renderSchedule();
 
 let weekOffset = 0;
 
