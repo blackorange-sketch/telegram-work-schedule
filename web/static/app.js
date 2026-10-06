@@ -38,6 +38,66 @@ async function loadScheduleAssignments() {
 }
 
 
+function openStationModal(assignment, workDate) {
+    const modal = document.getElementById("stationModal");
+    const title = document.getElementById("stationModalTitle");
+    const list = document.getElementById("stationWorkerList");
+    const clearButton = document.getElementById("clearStationButton");
+    const cancelButton = document.getElementById("cancelStationButton");
+
+    title.textContent = `Станція ${assignment.station}`;
+    list.innerHTML = "";
+
+    workers.forEach(worker => {
+        const button = document.createElement("button");
+        button.className = "station-worker-option";
+        button.textContent = worker.name;
+
+        button.onclick = () => {
+            const selectedAssignment = scheduleAssignments.find(item =>
+                item.work_date === workDate &&
+                item.worker_id === worker.id
+            );
+
+            if (selectedAssignment && selectedAssignment !== assignment) {
+                selectedAssignment.worker_id = assignment.worker_id;
+                selectedAssignment.worker_name = assignment.worker_name;
+            }
+
+            assignment.worker_id = worker.id;
+            assignment.worker_name = worker.name;
+
+            modal.classList.add("hidden");
+            renderSchedule();
+        };
+
+        list.appendChild(button);
+    });
+
+    clearButton.onclick = () => {
+        const index = scheduleAssignments.indexOf(assignment);
+
+        if (index !== -1) {
+            scheduleAssignments.splice(index, 1);
+        }
+
+        modal.classList.add("hidden");
+        renderSchedule();
+    };
+
+    cancelButton.onclick = () => {
+        modal.classList.add("hidden");
+    };
+
+    modal.onclick = event => {
+        if (event.target === modal) {
+            modal.classList.add("hidden");
+        }
+    };
+
+    modal.classList.remove("hidden");
+}
+
 function renderSchedule() {
     const body = document.getElementById("scheduleBody");
 
@@ -77,56 +137,7 @@ function renderSchedule() {
                 station.textContent = assignment.station;
 
                 station.onclick = () => {
-                    const options = workers
-                        .filter(worker => !worker.is_reserve)
-                        .map((worker, index) => `${index + 1} — ${worker.name}`)
-                        .join("\\n");
-
-                    const choice = prompt(
-                        `Зміна станції ${assignment.station} на ${workDate}\\n\\n` +
-                        `0 — Звільнити станцію\\n` +
-                        options
-                    );
-
-                    if (choice === null) {
-                        return;
-                    }
-
-                    const number = Number(choice);
-
-                    if (number === 0) {
-                        const index = scheduleAssignments.indexOf(assignment);
-
-                        if (index !== -1) {
-                            scheduleAssignments.splice(index, 1);
-                        }
-
-                        renderSchedule();
-                        return;
-                    }
-
-                    const selectedWorker = workers
-                        .filter(worker => !worker.is_reserve)[number - 1];
-
-                    if (!selectedWorker) {
-                        alert("Некоректний вибір працівника");
-                        return;
-                    }
-
-                    const selectedAssignment = scheduleAssignments.find(item =>
-                        item.work_date === workDate &&
-                        item.worker_id === selectedWorker.id
-                    );
-
-                    if (selectedAssignment && selectedAssignment !== assignment) {
-                        selectedAssignment.worker_id = assignment.worker_id;
-                        selectedAssignment.worker_name = assignment.worker_name;
-                    }
-
-                    assignment.worker_id = selectedWorker.id;
-                    assignment.worker_name = selectedWorker.name;
-
-                    renderSchedule();
+                    openStationModal(assignment, workDate);
                 };
 
                 cell.appendChild(station);
