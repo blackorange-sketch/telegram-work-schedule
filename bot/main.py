@@ -29,6 +29,11 @@ from bot.database import (
     get_schedule_settings,
     set_schedule_settings,
     get_shift_for_week,
+    get_or_create_schedule_week,
+    create_schedule_days,
+    update_schedule_day,
+    get_schedule_assignments,
+    generate_schedule_assignments,
 
 
 )
@@ -189,6 +194,111 @@ async def schedule_settings_update(data: dict):
         raise HTTPException(status_code=400, detail="Некоректна дата тижня")
 
     return await set_schedule_settings(start_week, start_shift)
+
+@app.get("/api/schedule/assignments")
+async def schedule_assignments_get(week_start: str):
+    try:
+        from datetime import date
+        week_start = date.fromisoformat(week_start)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="Некоректна дата тижня")
+
+    week = await get_or_create_schedule_week(week_start)
+    assignments = await get_schedule_assignments(week["id"])
+
+    return {
+        "week": week,
+        "assignments": assignments
+    }
+
+
+@app.post("/api/schedule/generate")
+async def schedule_generate(data: dict):
+    try:
+        from datetime import date
+        week_start = date.fromisoformat(data.get("week_start"))
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="Некоректна дата тижня")
+
+    shift = await get_shift_for_week(week_start)
+
+    if shift is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Спочатку потрібно налаштувати початкову зміну"
+        )
+
+    week = await get_or_create_schedule_week(week_start)
+
+    generated = await generate_schedule_assignments(
+        week["id"],
+        week_start,
+        shift
+    )
+
+    assignments = await get_schedule_assignments(week["id"])
+
+    return {
+        "week": week,
+        "shift": shift,
+        "generated": generated,
+        "assignments": assignments
+    }
+
+
+@app.get("/api/schedule/days")
+async def schedule_days_get(week_start: str):
+    try:
+        from datetime import date
+        week_start = date.fromisoformat(week_start)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="Некоректна дата тижня")
+
+    week = await get_or_create_schedule_week(week_start)
+    days = await create_schedule_days(week["id"], week_start)
+
+    return {
+        "week": week,
+        "days": days
+    }
+
+
+
+@app.put("/api/schedule/days")
+async def schedule_day_update(data: dict):
+    try:
+        from datetime import date
+        week_start = date.fromisoformat(data.get("week_start"))
+        work_date = date.fromisoformat(data.get("work_date"))
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="Некоректна дата")
+
+    is_working_day = bool(data.get("is_working_day", True))
+    default_shift = data.get("default_shift")
+
+    if default_shift is not None:
+        try:
+            default_shift = int(default_shift)
+        except (TypeError, ValueError):
+            raise HTTPException(status_code=400, detail="Некоректна зміна")
+
+        if default_shift not in (1, 2, 3):
+            raise HTTPException(status_code=400, detail="Зміна має бути 1, 2 або 3")
+
+    week = await get_or_create_schedule_week(week_start)
+    day = await update_schedule_day(
+        week["id"],
+        work_date,
+        is_working_day,
+        default_shift
+    )
+
+    if not day:
+        raise HTTPException(status_code=404, detail="День розкладу не знайдено")
+
+    return day
+
+
 
 # =========================
 # Telegram Bot

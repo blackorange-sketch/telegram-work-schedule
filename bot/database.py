@@ -1,5 +1,7 @@
 import os
 import asyncpg
+import random
+from datetime import timedelta
 
 
 DATABASE_URL = os.getenv("DATABASE_URL")
@@ -53,6 +55,18 @@ async def init_db():
                 UNIQUE (week_id, work_date, station)
             )
         """)
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS schedule_days (
+                id SERIAL PRIMARY KEY,
+                week_id INTEGER NOT NULL REFERENCES schedule_weeks(id) ON DELETE CASCADE,
+                work_date DATE NOT NULL,
+                is_working_day BOOLEAN NOT NULL DEFAULT TRUE,
+                default_shift INTEGER CHECK (default_shift BETWEEN 1 AND 3),
+                UNIQUE (week_id, work_date)
+            )
+        """)
+
+
 
 
 
@@ -116,6 +130,162 @@ async def get_shift_for_week(week_start):
         weeks_diff = (week_start - row["start_week"]).days // 7
         return ((row["start_shift"] - 1 - weeks_diff) % 3) + 1
 
+async def get_or_create_schedule_week(week_start):
+    async with _pool.acquire() as conn:
+        row = await conn.fetchrow("""
+            SELECT id, week_start, generated_at
+            FROM schedule_weeks
+            WHERE week_start = $1
+        """, week_start)
+
+        if row:
+            return dict(row)
+
+        row = await conn.fetchrow("""
+            INSERT INTO schedule_weeks (week_start)
+            VALUES ($1)
+            RETURNING id, week_start, generated_at
+        """, week_start)
+
+        return dict(row)
+
+
+async def create_schedule_days(week_id, week_start):
+    async with _pool.acquire() as conn:
+        rows = []
+
+        for day_offset in range(7):
+            work_date = week_start + timedelta(days=day_offset)
+            row = await conn.fetchrow("""
+                INSERT INTO schedule_days (week_id, work_date)
+                VALUES ($1, $2)
+                ON CONFLICT (week_id, work_date) DO NOTHING
+                RETURNING id, week_id, work_date, is_working_day, default_shift
+            """, week_id, work_date)
+
+            if row:
+                rows.append(dict(row))
+
+        return rows
+
+async def update_schedule_day(week_id, work_date, is_working_day, default_shift):
+    async with _pool.acquire() as conn:
+        row = await conn.fetchrow("""
+            UPDATE schedule_days
+            SET is_working_day = $1,
+                default_shift = $2
+            WHERE week_id = $3 AND work_date = $4
+            RETURNING id, week_id, work_date, is_working_day, default_shift
+        """, is_working_day, default_shift, week_id, work_date)
+
+        return dict(row) if row else None
+
+
+
+
+
+async def get_schedule_assignments(week_id):
+    async with _pool.acquire() as conn:
+        rows = await conn.fetch("""
+            SELECT
+                sa.id,
+                sa.week_id,
+                sa.work_date,
+                sa.worker_id,
+                w.name AS worker_name,
+                sa.station,
+                sa.shift
+            FROM schedule_assignments sa
+            JOIN workers w ON w.id = sa.worker_id
+            WHERE sa.week_id = $1
+            ORDER BY sa.work_date, sa.station
+        """, week_id)
+
+        return [dict(row) for row in rows]
+
+
+async def generate_schedule_assignments(week_id, week_start, shift):
+    async with _pool.acquire() as conn:
+        existing = await conn.fetchval("""
+            SELECT COUNT(*)
+            FROM schedule_assignments
+            WHERE week_id = $1
+        """, week_id)
+
+        if existing:
+            return False
+
+        rows = await conn.fetch("""
+            SELECT id
+            FROM workers
+            WHERE active = TRUE
+              AND is_reserve = FALSE
+            ORDER BY id
+            LIMIT 10
+        """)
+
+        worker_ids = [row["id"] for row in rows]
+
+        if not worker_ids:
+            return False
+
+        stations = list(range(15, 25))
+        used_by_worker = {worker_id: set() for worker_id in worker_ids}
+
+        for day_offset in range(5):
+            work_date = week_start + timedelta(days=day_offset)
+
+            assignment = None
+
+            for _ in range(1000):
+                available_workers = worker_ids[:]
+                random.shuffle(available_workers)
+
+                available_stations = stations[:]
+                random.shuffle(available_stations)
+
+                candidate = {}
+                valid = True
+
+                for worker_id in available_workers:
+                    choices = [
+                        station
+                        for station in available_stations
+                        if station not in used_by_worker[worker_id]
+                    ]
+
+                    if not choices:
+                        valid = False
+                        break
+
+                    station = random.choice(choices)
+                    candidate[worker_id] = station
+                    available_stations.remove(station)
+
+                if valid:
+                    assignment = candidate
+                    break
+
+            if assignment is None:
+                raise RuntimeError(
+                    f"Не вдалося розподілити станції на {work_date}"
+                )
+
+            for worker_id, station in assignment.items():
+                await conn.execute("""
+                    INSERT INTO schedule_assignments (
+                        shift,
+                        week_id,
+                        work_date,
+                        worker_id,
+                        station
+                    )
+                    VALUES ($1, $2, $3, $4, $5)
+                """, shift, week_id, work_date, worker_id, station)
+
+                used_by_worker[worker_id].add(station)
+
+        return True
 
 
 async def update_worker(
