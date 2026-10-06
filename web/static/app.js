@@ -753,21 +753,34 @@ async function exportScheduleImage(mode) {
         const file = new File([blob], fileName, { type: "image/png" });
 
         if (mode === "share") {
-            if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-                try {
-                    await navigator.share({
-                        title: "Schedule",
-                        files: [file]
-                    });
-                } catch (error) {
-                    if (error.name !== "AbortError") {
-                        alert("Не вдалося поділитися зображенням");
-                    }
-                }
+            const initData = tg.initData;
+
+            if (!initData) {
+                alert("Не вдалося отримати дані Telegram");
                 return;
             }
 
-            alert("Надсилання файлів не підтримується цим пристроєм");
+            try {
+                const shareResponse = await fetch("/api/export/share", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "image/png",
+                        "X-Telegram-Init-Data": initData
+                    },
+                    body: blob
+                });
+
+                if (!shareResponse.ok) {
+                    const errorData = await shareResponse.json().catch(() => ({}));
+                    alert(errorData.detail || "Не вдалося надіслати зображення");
+                    return;
+                }
+
+                alert("Зображення надіслано в Telegram");
+            } catch (error) {
+                alert("Не вдалося надіслати зображення");
+            }
+
             return;
         }
 

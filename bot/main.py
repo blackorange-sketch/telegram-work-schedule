@@ -1,4 +1,8 @@
 import asyncio
+import hashlib
+import hmac
+import json
+import time
 import os
 import tempfile
 import uuid
@@ -11,6 +15,7 @@ from aiogram.types import (
     InlineKeyboardMarkup,
     WebAppInfo,
     Message,
+    BufferedInputFile,
 )
 
 from dotenv import load_dotenv
@@ -53,6 +58,48 @@ load_dotenv()
 
 TOKEN = os.getenv("BOT_TOKEN")
 WEB_APP_URL = os.getenv("WEB_APP_URL")
+
+def validate_telegram_init_data(init_data):
+    if not TOKEN or not init_data:
+        return None
+
+    from urllib.parse import parse_qsl
+
+    data = dict(parse_qsl(init_data, keep_blank_values=True))
+    received_hash = data.pop("hash", None)
+
+    if not received_hash:
+        return None
+
+    data_check_string = "\n".join(
+        f"{key}={value}" for key, value in sorted(data.items())
+    )
+
+    secret_key = hmac.new(
+        b"WebAppData",
+        TOKEN.encode(),
+        hashlib.sha256,
+    ).digest()
+
+    calculated_hash = hmac.new(
+        secret_key,
+        data_check_string.encode(),
+        hashlib.sha256,
+    ).hexdigest()
+
+    if not hmac.compare_digest(calculated_hash, received_hash):
+        return None
+
+    try:
+        auth_date = int(data.get("auth_date", "0"))
+        if not auth_date or time.time() - auth_date > 3600:
+            return None
+
+        user = json.loads(data["user"])
+        return user
+    except (ValueError, KeyError, json.JSONDecodeError):
+        return None
+
 
 dp = Dispatcher()
 app = FastAPI()
@@ -515,6 +562,36 @@ async def export_schedule(request: Request):
         "file_id": file_id,
         "url": f"/api/export/schedule/{file_id}"
     }
+
+
+@app.post("/api/export/share")
+async def share_schedule(request: Request):
+    init_data = request.headers.get("X-Telegram-Init-Data")
+    user = validate_telegram_init_data(init_data)
+
+    if not user:
+        raise HTTPException(status_code=401, detail="Некоректні дані Telegram")
+
+    data = await request.body()
+
+    if not data.startswith(b"\\x89PNG\\r\\n\\x1a\\n"):
+        raise HTTPException(status_code=400, detail="Очікується PNG")
+
+    if len(data) > 10 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Файл завеликий")
+
+    bot = Bot(token=TOKEN)
+
+    try:
+        await bot.send_photo(
+            chat_id=user["id"],
+            photo=BufferedInputFile(data, filename="schedule.png"),
+            caption="📅 Schedule",
+        )
+    finally:
+        await bot.session.close()
+
+    return {"sent": True}
 
 
 @app.get("/api/export/schedule/{file_id}")
