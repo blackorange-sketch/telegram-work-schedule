@@ -528,17 +528,14 @@ async function showLunchScreen() {
         await loadScheduleWorkers();
     }
 
-    const options = workers
-        .filter(worker => !worker.is_reserve)
-        .map(worker =>
-            `<option value="${worker.id}">${worker.name}</option>`
-        )
-        .join("");
-
-    const pairs = Array.from({ length: 5 }, () => `
+    const pairs = Array.from({ length: 5 }, (_, index) => `
         <div class="lunch-pair">
-            <select class="lunch-worker">${options}</select>
-            <select class="lunch-worker">${options}</select>
+            <button class="lunch-worker-button" data-pair="${index}" data-slot="0">
+                Обрати працівника
+            </button>
+            <button class="lunch-worker-button" data-pair="${index}" data-slot="1">
+                Обрати працівника
+            </button>
         </div>
     `).join("");
 
@@ -551,7 +548,7 @@ async function showLunchScreen() {
                     <strong>Зміна 1</strong>
                     <label>
                         Початок обіду
-                        <input type="time" class="lunch-start-time" value="10:00">
+                        <button class="lunch-time-button" data-time="10:00">10:00</button>
                     </label>
                 </div>
 
@@ -559,7 +556,7 @@ async function showLunchScreen() {
                     <strong>Зміна 2</strong>
                     <label>
                         Початок обіду
-                        <input type="time" class="lunch-start-time" value="18:00">
+                        <button class="lunch-time-button" data-time="18:00">18:00</button>
                     </label>
                 </div>
 
@@ -567,7 +564,7 @@ async function showLunchScreen() {
                     <strong>Зміна 3</strong>
                     <label>
                         Початок обіду
-                        <input type="time" class="lunch-start-time" value="02:00">
+                        <button class="lunch-time-button" data-time="02:00">02:00</button>
                     </label>
                 </div>
             </div>
@@ -582,3 +579,136 @@ async function showLunchScreen() {
         </section>
     `;
 }
+
+function openLunchWorkerModal(button) {
+    const modal = document.getElementById("stationModal");
+    const title = document.getElementById("stationModalTitle");
+    const list = document.getElementById("stationWorkerList");
+    const clearButton = document.getElementById("clearStationButton");
+    const cancelButton = document.getElementById("cancelStationButton");
+
+    title.textContent = "Обрати працівника";
+    list.innerHTML = "";
+
+    workers
+        .filter(worker => !worker.is_reserve)
+        .forEach(worker => {
+            const option = document.createElement("button");
+            option.className = "station-worker-option";
+            option.textContent = worker.name;
+
+            option.onclick = () => {
+                button.textContent = worker.name;
+                button.dataset.workerId = worker.id;
+                modal.classList.add("hidden");
+            };
+
+            list.appendChild(option);
+        });
+
+    clearButton.style.display = "none";
+
+    cancelButton.onclick = () => {
+        modal.classList.add("hidden");
+        clearButton.style.display = "";
+    };
+
+    modal.onclick = event => {
+        if (event.target === modal) {
+            modal.classList.add("hidden");
+            clearButton.style.display = "";
+        }
+    };
+
+    modal.classList.remove("hidden");
+}
+
+document.addEventListener("click", event => {
+    const button = event.target.closest(".lunch-worker-button");
+
+    if (button) {
+        openLunchWorkerModal(button);
+    }
+});
+
+function openLunchTimeModal(button) {
+    const modal = document.getElementById("stationModal");
+    const title = document.getElementById("stationModalTitle");
+    const list = document.getElementById("stationWorkerList");
+    const clearButton = document.getElementById("clearStationButton");
+    const cancelButton = document.getElementById("cancelStationButton");
+
+    title.textContent = "Початок обіду";
+    list.innerHTML = "";
+
+    const input = document.createElement("input");
+    input.type = "text";
+    input.inputMode = "numeric";
+    input.maxLength = 5;
+    input.placeholder = "HH:MM";
+    input.value = button.dataset.time || button.textContent;
+
+    input.style.width = "100%";
+    input.style.boxSizing = "border-box";
+    input.style.padding = "12px";
+    input.style.border = "1px solid var(--border)";
+    input.style.borderRadius = "9px";
+    input.style.background = "var(--bg)";
+    input.style.color = "var(--text)";
+    input.style.fontSize = "20px";
+    input.style.textAlign = "center";
+    input.style.fontVariantNumeric = "tabular-nums";
+
+    list.appendChild(input);
+
+    const saveButton = document.createElement("button");
+    saveButton.className = "station-worker-option";
+    saveButton.textContent = "Зберегти";
+    saveButton.style.marginTop = "8px";
+
+    saveButton.onclick = () => {
+        const value = input.value.trim();
+
+        if (!/^([01]\\d|2[0-3]):[0-5]\\d$/.test(value)) {
+            alert("Введіть час у форматі HH:MM");
+            return;
+        }
+
+        button.textContent = value;
+        button.dataset.time = value;
+
+        modal.classList.add("hidden");
+        clearButton.style.display = "";
+    };
+
+    list.appendChild(saveButton);
+
+    clearButton.style.display = "none";
+
+    cancelButton.onclick = () => {
+        modal.classList.add("hidden");
+        clearButton.style.display = "";
+    };
+
+    modal.onclick = event => {
+        if (event.target === modal) {
+            modal.classList.add("hidden");
+            clearButton.style.display = "";
+        }
+    };
+
+    modal.classList.remove("hidden");
+
+    setTimeout(() => {
+        input.focus();
+        input.select();
+    }, 50);
+}
+
+document.addEventListener("click", event => {
+    const button = event.target.closest(".lunch-time-button");
+
+    if (button) {
+        openLunchTimeModal(button);
+    }
+});
