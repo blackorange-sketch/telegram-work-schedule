@@ -1,5 +1,6 @@
 console.log("APP.JS START", Date.now());
 const tg = window.Telegram.WebApp;
+tg.onEvent("shareMessageSent", () => console.log("SHARE SENT")); tg.onEvent("shareMessageFailed", (error) => console.log("SHARE FAILED:", error));
 
 tg.ready();
 
