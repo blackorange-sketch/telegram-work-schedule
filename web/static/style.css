@@ -969,26 +969,68 @@ main {
 
 .lunch-time-picker {
     display: flex;
-    align-items: center;
     justify-content: center;
-    gap: 8px;
-    margin: 10px 0;
+    gap: 12px;
+    margin: 14px 0;
 }
 
-.lunch-time-picker select {
-    width: 82px;
-    height: 52px;
-    padding: 0 8px;
-    border: 0;
-    border-radius: 10px;
+.lunch-time-wheel {
+    position: relative;
+    width: 86px;
+    height: 180px;
+    overflow-y: auto;
+    scroll-snap-type: y mandatory;
+    scrollbar-width: none;
+    border-radius: 12px;
     background: var(--bg);
+    overscroll-behavior: contain;
+}
+
+.lunch-time-wheel::-webkit-scrollbar {
+    display: none;
+}
+
+.lunch-time-wheel::after {
+    content: "";
+    position: absolute;
+    left: 6px;
+    right: 6px;
+    top: 70px;
+    height: 40px;
+    border-top: 2px solid var(--accent);
+    border-bottom: 2px solid var(--accent);
+    border-radius: 8px;
+    pointer-events: none;
+}
+
+.lunch-time-wheel-spacer {
+    height: 70px;
+}
+
+.lunch-time-option {
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    scroll-snap-align: center;
     color: var(--text);
     font-size: 22px;
     font-weight: 600;
-    text-align: center;
     font-variant-numeric: tabular-nums;
+    opacity: 0.45;
+    user-select: none;
 }
 
-.lunch-time-picker select:focus {
-    outline: 2px solid var(--accent);
+.lunch-time-option.selected {
+    color: var(--accent);
+    opacity: 1;
+}
+
+.lunch-time-separator {
+    display: flex;
+    align-items: center;
+    height: 180px;
+    color: var(--text);
+    font-size: 22px;
+    font-weight: 700;
 }

@@ -663,35 +663,136 @@ function openLunchTimeModal(button) {
     const picker = document.createElement("div");
     picker.className = "lunch-time-picker";
 
-    const hour = document.createElement("select");
-    const minute = document.createElement("select");
+    const hourWheel = document.createElement("div");
+    hourWheel.className = "lunch-time-wheel";
+
+    const minuteWheel = document.createElement("div");
+    minuteWheel.className = "lunch-time-wheel";
+
+    const hourSpacerTop = document.createElement("div");
+    hourSpacerTop.className = "lunch-time-wheel-spacer";
+
+    const minuteSpacerTop = document.createElement("div");
+    minuteSpacerTop.className = "lunch-time-wheel-spacer";
+
+    const hourSpacerBottom = document.createElement("div");
+    hourSpacerBottom.className = "lunch-time-wheel-spacer";
+
+    const minuteSpacerBottom = document.createElement("div");
+    minuteSpacerBottom.className = "lunch-time-wheel-spacer";
+
+    hourWheel.appendChild(hourSpacerTop);
+    minuteWheel.appendChild(minuteSpacerTop);
 
     for (let i = 0; i < 24; i++) {
-        const option = document.createElement("option");
-        option.value = String(i).padStart(2, "0");
-        option.textContent = option.value;
-        hour.appendChild(option);
+        const option = document.createElement("div");
+        option.className = "lunch-time-option";
+        option.dataset.value = String(i).padStart(2, "0");
+        option.textContent = option.dataset.value;
+        hourWheel.appendChild(option);
     }
 
     for (let i = 0; i < 60; i += 10) {
-        const option = document.createElement("option");
-        option.value = String(i).padStart(2, "0");
-        option.textContent = option.value;
-        minute.appendChild(option);
+        const option = document.createElement("div");
+        option.className = "lunch-time-option";
+        option.dataset.value = String(i).padStart(2, "0");
+        option.textContent = option.dataset.value;
+        minuteWheel.appendChild(option);
     }
 
-    hour.value = String(currentHour).padStart(2, "0");
-    minute.value = String(Math.floor(currentMinute / 10) * 10).padStart(2, "0");
+    hourWheel.appendChild(hourSpacerBottom);
+    minuteWheel.appendChild(minuteSpacerBottom);
 
-    picker.append(hour, document.createTextNode(" : "), minute);
+    const separator = document.createElement("div");
+    separator.className = "lunch-time-separator";
+    separator.textContent = ":";
+
+    picker.append(hourWheel, separator, minuteWheel);
     content.appendChild(picker);
+
+    const hourIndex = Math.max(0, Math.min(23, currentHour));
+    const minuteIndex = Math.max(0, Math.min(5, Math.round(currentMinute / 10)));
+
+    const scrollWheelToIndex = (wheel, index) => {
+        wheel.scrollTop = index * 40;
+    };
+
+    scrollWheelToIndex(hourWheel, hourIndex);
+    scrollWheelToIndex(minuteWheel, minuteIndex);
+
+    const updateSelected = wheel => {
+        const options = wheel.querySelectorAll(".lunch-time-option");
+        const index = Math.round(wheel.scrollTop / 40);
+
+        options.forEach((option, i) => {
+            option.classList.toggle("selected", i === index);
+        });
+    };
+
+    let hourTimer;
+    let minuteTimer;
+
+    hourWheel.addEventListener("scroll", () => {
+        updateSelected(hourWheel);
+        clearTimeout(hourTimer);
+
+        hourTimer = setTimeout(() => {
+            const index = Math.max(0, Math.min(23, Math.round(hourWheel.scrollTop / 40)));
+            hourWheel.scrollTo({
+                top: index * 40,
+                behavior: "smooth"
+            });
+            updateSelected(hourWheel);
+        }, 80);
+    });
+
+    minuteWheel.addEventListener("scroll", () => {
+        updateSelected(minuteWheel);
+        clearTimeout(minuteTimer);
+
+        minuteTimer = setTimeout(() => {
+            const index = Math.max(0, Math.min(5, Math.round(minuteWheel.scrollTop / 40)));
+            minuteWheel.scrollTo({
+                top: index * 40,
+                behavior: "smooth"
+            });
+            updateSelected(minuteWheel);
+        }, 80);
+    });
+
+    hourWheel.addEventListener("click", event => {
+        const option = event.target.closest(".lunch-time-option");
+        if (!option) return;
+
+        const index = Number(option.dataset.value);
+        scrollWheelToIndex(hourWheel, index);
+    });
+
+    minuteWheel.addEventListener("click", event => {
+        const option = event.target.closest(".lunch-time-option");
+        if (!option) return;
+
+        const index = Number(option.dataset.value) / 10;
+        scrollWheelToIndex(minuteWheel, index);
+    });
+
+    requestAnimationFrame(() => {
+        updateSelected(hourWheel);
+        updateSelected(minuteWheel);
+    });
 
     const saveButton = document.createElement("button");
     saveButton.className = "station-cancel-button";
     saveButton.textContent = "Готово";
 
     saveButton.onclick = () => {
-        const time = `${hour.value}:${minute.value}`;
+        const hourIndex = Math.max(0, Math.min(23, Math.round(hourWheel.scrollTop / 40)));
+        const minuteIndex = Math.max(0, Math.min(5, Math.round(minuteWheel.scrollTop / 40)));
+
+        const hour = String(hourIndex).padStart(2, "0");
+        const minute = String(minuteIndex * 10).padStart(2, "0");
+        const time = `${hour}:${minute}`;
+
         button.textContent = time;
         button.dataset.time = time;
         modal.classList.add("hidden");
