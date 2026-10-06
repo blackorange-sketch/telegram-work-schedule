@@ -15,6 +15,14 @@ if (tg.expand) {
     tg.expand();
 }
 
+if (tg.requestFullscreen) {
+    try {
+        tg.requestFullscreen();
+    } catch {
+        tg.expand();
+    }
+}
+
 let workers = [];
 let scheduleDays = [];
 let scheduleShift = null;
