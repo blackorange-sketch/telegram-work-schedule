@@ -807,14 +807,13 @@ async function exportScheduleImage(mode) {
         alert("Prepared ID: " + data.prepared_message_id);
         alert("TG version: " + tg.version + "\nPlatform: " + tg.platform + "\nshareMessage: " + typeof tg.shareMessage);
 
-                tg.shareMessage(
-                    data.prepared_message_id,
-                    (error) => {
-                        if (error) {
-                            alert("Не вдалося відкрити меню поширення: " + error);
-                        }
-                    }
-                );
+        tg.shareMessage(
+            data.prepared_message_id,
+            (sent) => {
+                console.log("SHARE CALLBACK:", sent);
+                alert("Share callback: " + sent);
+            }
+        );
             } catch (error) {
                 alert("Помилка підготовки поширення");
             }
