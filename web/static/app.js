@@ -42,11 +42,22 @@ async function checkAdminAccess() {
 let preparedShareMessageId = null;
 tg.onEvent("shareMessageSent", () => console.log("SHARE SENT")); tg.onEvent("shareMessageFailed", (error) => console.log("SHARE FAILED:", error));
 
-checkAdminAccess().then(() => {
-    tg.ready();
-}).catch((error) => {
-    console.error("ADMIN AUTH:", error);
-});
+const adminAccessPromise = checkAdminAccess()
+    .then(() => {
+        tg.ready();
+
+        return new Promise((resolve, reject) => {
+            const script = document.createElement("script");
+            script.src = "/static/workers.js?v=2";
+            script.onload = () => resolve(true);
+            script.onerror = () => reject(new Error("Не вдалося завантажити workers.js"));
+            document.body.appendChild(script);
+        });
+    })
+    .catch((error) => {
+        console.error("ADMIN AUTH:", error);
+        return false;
+    });
 
 if (tg.setHeaderColor) {
     tg.setHeaderColor("#f8f8fa");
@@ -1104,7 +1115,12 @@ function showScreen(screenId) {
 }
 
 showScreen("scheduleScreen");
-showScheduleScreen();
+
+adminAccessPromise.then(authorized => {
+    if (authorized) {
+        showScheduleScreen();
+    }
+});
 
 async function loadLunchSettings() {
     const weekStart = formatDate(getWeekStart());
