@@ -789,6 +789,8 @@ async function showLunchScreen() {
         }
 
         await loadLunchSettings();
+        lunchScreenLoaded = false;
+        await showLunchScreen();
         alert("Налаштування обідів збережено");
     };
 
