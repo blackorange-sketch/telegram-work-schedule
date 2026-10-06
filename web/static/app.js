@@ -142,6 +142,7 @@ function openStationModal(assignment, workDate) {
 
             modal.classList.add("hidden");
             renderSchedule();
+            prepareShareInBackground();
         };
 
         list.appendChild(button);
@@ -177,6 +178,7 @@ function openStationModal(assignment, workDate) {
 
         modal.classList.add("hidden");
         renderSchedule();
+        prepareShareInBackground();
     };
 
     cancelButton.onclick = () => {
@@ -237,6 +239,7 @@ function openStationChoiceModal(worker, workDate) {
         modal.classList.add("hidden");
         clearButton.style.display = "";
         renderSchedule();
+        prepareShareInBackground();
     };
 
     list.appendChild(dayOffButton);
@@ -311,6 +314,7 @@ function openStationChoiceModal(worker, workDate) {
             modal.classList.add("hidden");
             clearButton.style.display = "";
             renderSchedule();
+            prepareShareInBackground();
         };
 
         list.appendChild(button);
@@ -654,6 +658,7 @@ async function showScheduleScreen() {
 
         renderSchedule();
         bindScheduleButtons();
+        prepareShareInBackground();
         return;
     }
 
@@ -849,12 +854,16 @@ async function exportScheduleImage(mode) {
     }, "image/jpeg", 0.95);
 }
 
+function prepareShareInBackground() {
+    preparedShareMessageId = null;
+    exportScheduleImage("prepare-share");
+}
+
 function bindScheduleButtons() {
     const exportModal = document.getElementById("exportModal");
 
     document.getElementById("exportScheduleButton").onclick = () => {
         exportModal.classList.remove("hidden");
-        exportScheduleImage("prepare-share");
     };
 
     document.getElementById("saveScheduleImageButton").onclick = async () => {
@@ -862,9 +871,25 @@ function bindScheduleButtons() {
         await exportScheduleImage("save");
     };
 
-    document.getElementById("shareScheduleImageButton").onclick = async () => {
+    document.getElementById("shareScheduleImageButton").onclick = () => {
         exportModal.classList.add("hidden");
-        await exportScheduleImage("share");
+
+        const tg = window.Telegram?.WebApp;
+
+        if (!tg?.shareMessage) {
+            alert("Поширення через Telegram не підтримується");
+            return;
+        }
+
+        if (!preparedShareMessageId) {
+            alert("Файл ще готується, спробуйте ще раз через секунду");
+            return;
+        }
+
+        tg.shareMessage(
+            preparedShareMessageId,
+            (sent) => console.log("SHARE CALLBACK:", sent)
+        );
     };
 
     document.getElementById("cancelExportButton").onclick = () => {
