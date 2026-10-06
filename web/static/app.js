@@ -1236,7 +1236,7 @@ async function showLunchScreen() {
 
     document.querySelectorAll(".lunch-time-button").forEach(button => {
         const shift = button.closest(".lunch-shift")?.querySelector("strong")?.textContent;
-        const match = shift?.match(/Зміна (\\d)/);
+        const match = shift?.match(/Зміна (\d)/);
 
         if (!match) {
             return;
