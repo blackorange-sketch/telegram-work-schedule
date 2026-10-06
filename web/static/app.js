@@ -186,16 +186,60 @@ function bindScheduleButtons() {
     };
     document.getElementById("generateScheduleButton").onclick = async () => {
         const weekStart = formatDate(getWeekStart());
+
+        const settingsResponse = await fetch("/api/schedule/settings");
+
+        if (!settingsResponse.ok) {
+            alert("Не вдалося перевірити налаштування зміни");
+            return;
+        }
+
+        const settings = await settingsResponse.json();
+
+        if (!settings) {
+            const selectedShift = prompt(
+                "Вкажіть початкову зміну:\n\n1 — 06:00–14:00\n2 — 14:00–22:00\n3 — 22:00–06:00"
+            );
+
+            if (!["1", "2", "3"].includes(selectedShift)) {
+                return;
+            }
+
+            const settingsSaveResponse = await fetch("/api/schedule/settings", {
+                method: "PUT",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    start_week: weekStart,
+                    start_shift: Number(selectedShift)
+                })
+            });
+
+            if (!settingsSaveResponse.ok) {
+                const data = await settingsSaveResponse.json().catch(() => ({}));
+                alert(data.detail || "Не вдалося зберегти початкову зміну");
+                return;
+            }
+        }
+
         const response = await fetch("/api/schedule/generate", {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ week_start: weekStart })
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                week_start: weekStart
+            })
         });
+
         if (!response.ok) {
             const data = await response.json().catch(() => ({}));
             alert(data.detail || "Не вдалося згенерувати розклад");
             return;
         }
+
+        await loadScheduleShift();
         await loadScheduleAssignments();
         renderSchedule();
     };

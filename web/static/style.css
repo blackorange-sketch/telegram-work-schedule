@@ -238,8 +238,10 @@ main {
 
 .name {
     text-align: left !important;
-
     font-weight: 600;
+    white-space: normal !important;
+    line-height: 1.15;
+    overflow-wrap: anywhere;
 }
 
 
