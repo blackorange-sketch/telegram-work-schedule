@@ -103,11 +103,24 @@
         </section>
 
 
-        <button id="generateScheduleButton" class="add-worker-button">
+        <button id="exportScheduleButton" class="add-worker-button">📤 Export</button>
+
+<button id="generateScheduleButton" class="add-worker-button">
             ⚙️ Згенерувати розклад
         </button>
 
 
+
+        <div id="exportModal" class="station-modal hidden">
+            <div class="station-modal-box">
+                <div class="station-modal-title">Export schedule</div>
+                <div class="station-worker-list">
+                    <button id="saveScheduleImageButton" class="station-choice-option">📥 Save image</button>
+                    <button id="shareScheduleImageButton" class="station-choice-option">📤 Share image</button>
+                    <button id="cancelExportButton" class="station-cancel-button">Cancel</button>
+                </div>
+            </div>
+        </div>
 
         <div id="stationModal" class="station-modal hidden">
             <div class="station-modal-box">

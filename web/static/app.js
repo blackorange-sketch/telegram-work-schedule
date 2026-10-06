@@ -644,7 +644,138 @@ async function showScheduleScreen() {
 
     screen.hidden = false;
 }
+
+async function exportScheduleImage(mode) {
+    const table = document.querySelector(".schedule");
+    if (!table) {
+        alert("Розклад ще не завантажено");
+        return;
+    }
+
+    const rows = [...table.querySelectorAll("tr")];
+    const scale = 2;
+    const padding = 40;
+    const rowHeight = 54;
+    const colWidths = [220, 95, 95, 95, 95, 95, 95, 95, 110];
+
+    const canvas = document.createElement("canvas");
+    canvas.width = (colWidths.reduce((sum, width) => sum + width, 0) + padding * 2) * scale;
+    canvas.height = (100 + rows.length * rowHeight + padding) * scale;
+
+    const ctx = canvas.getContext("2d");
+    ctx.scale(scale, scale);
+
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvas.width / scale, canvas.height / scale);
+
+    ctx.fillStyle = "#111827";
+    ctx.font = "bold 24px sans-serif";
+    ctx.fillText("Schedule", padding, 38);
+
+    const weekTitle = document.getElementById("weekTitle");
+    ctx.font = "16px sans-serif";
+    ctx.fillStyle = "#6b7280";
+    ctx.fillText(weekTitle ? weekTitle.textContent.trim() : "", padding, 64);
+
+    let y = 90;
+
+    rows.forEach((row, rowIndex) => {
+        const cells = [...row.children];
+        let x = padding;
+
+        cells.forEach((cell, columnIndex) => {
+            const width = colWidths[columnIndex] || 100;
+
+            ctx.fillStyle = rowIndex === 0 ? "#e5e7eb" : "#f9fafb";
+            ctx.fillRect(x, y, width, rowHeight);
+
+            ctx.strokeStyle = "#d1d5db";
+            ctx.strokeRect(x, y, width, rowHeight);
+
+            ctx.fillStyle = "#111827";
+            ctx.font = rowIndex === 0
+                ? "bold 14px sans-serif"
+                : "14px sans-serif";
+
+            const text = cell.textContent.trim();
+            const lines = text.split(/\n+/).map(line => line.trim()).filter(Boolean);
+
+            lines.slice(0, 2).forEach((line, index) => {
+                ctx.fillText(line, x + 10, y + 22 + index * 18);
+            });
+
+            x += width;
+        });
+
+        y += rowHeight;
+    });
+
+    canvas.toBlob(async blob => {
+        if (!blob) {
+            alert("Не вдалося створити зображення");
+            return;
+        }
+
+        const fileName = `schedule-${formatDate(getWeekStart())}.png`;
+        const file = new File([blob], fileName, { type: "image/png" });
+
+        if (mode === "share") {
+            if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+                try {
+                    await navigator.share({
+                        title: "Schedule",
+                        files: [file]
+                    });
+                } catch (error) {
+                    if (error.name !== "AbortError") {
+                        alert("Не вдалося поділитися зображенням");
+                    }
+                }
+                return;
+            }
+
+            alert("Надсилання файлів не підтримується цим пристроєм");
+            return;
+        }
+
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = fileName;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+    }, "image/png");
+}
+
 function bindScheduleButtons() {
+    const exportModal = document.getElementById("exportModal");
+
+    document.getElementById("exportScheduleButton").onclick = () => {
+        exportModal.classList.remove("hidden");
+    };
+
+    document.getElementById("saveScheduleImageButton").onclick = async () => {
+        exportModal.classList.add("hidden");
+        await exportScheduleImage("save");
+    };
+
+    document.getElementById("shareScheduleImageButton").onclick = async () => {
+        exportModal.classList.add("hidden");
+        await exportScheduleImage("share");
+    };
+
+    document.getElementById("cancelExportButton").onclick = () => {
+        exportModal.classList.add("hidden");
+    };
+
+    exportModal.onclick = event => {
+        if (event.target === exportModal) {
+            exportModal.classList.add("hidden");
+        }
+    };
+
     document.getElementById("prevWeek").onclick = async () => {
         weekOffset--;
         updateWeek();
