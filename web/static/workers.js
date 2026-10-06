@@ -7,7 +7,10 @@ function showWorkersScreen() {
             <div id="workersList"></div><button id="addWorkerButton" class="add-worker-button">＋ Додати працівника</button>
         <div id="workerModal" class="worker-modal hidden"><div class="worker-modal-box"><div class="worker-modal-title">Новий працівник</div><input id="workerNameInput" type="text" placeholder="Імʼя працівника"><div class="worker-modal-buttons"><button id="cancelWorkerButton">Скасувати</button><button id="saveWorkerButton">Додати</button></div></div></div></section>
     `;
-    loadWorkers();
+    if (!workersScreenLoaded) {
+        loadWorkers();
+        workersScreenLoaded = true;
+    }
     setupWorkerButtons();
 }
 

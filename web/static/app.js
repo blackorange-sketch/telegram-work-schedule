@@ -12,6 +12,8 @@ let workers = [];
 let scheduleDays = [];
 let scheduleShift = null;
 let scheduleAssignments = [];
+let scheduleLoaded = false;
+let workersScreenLoaded = false;
 
 async function loadScheduleAssignments() {
     const weekStart = formatDate(getWeekStart());
@@ -163,10 +165,15 @@ async function loadScheduleShift() {
 async function showScheduleScreen() {
     const main = document.querySelector("main");
     main.innerHTML = scheduleTemplate;
-    await loadScheduleWorkers();
-    await loadScheduleDays();
-    await loadScheduleShift();
-    await loadScheduleAssignments();
+
+    if (!scheduleLoaded) {
+        await loadScheduleWorkers();
+        await loadScheduleDays();
+        await loadScheduleShift();
+        await loadScheduleAssignments();
+        scheduleLoaded = true;
+    }
+
     renderSchedule();
     bindScheduleButtons();
 }
