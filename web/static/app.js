@@ -357,7 +357,7 @@ function openDayOffModal(worker, workDate) {
     const clearButton = document.getElementById("clearStationButton");
     const cancelButton = document.getElementById("cancelStationButton");
 
-    title.textContent = `Вихідний — ${worker.name}`;
+    title.textContent = `Day off — ${worker.name}`;
     list.innerHTML = "";
 
     const cancelDayOffButton = document.createElement("button");
@@ -451,7 +451,7 @@ function renderSchedule() {
             );
 
             if (isDayOff) {
-                cell.textContent = "Вихідний";
+                cell.textContent = "Day off";
                 cell.className = "day-off";
                 cell.onclick = () => {
                     openDayOffModal(worker, workDate);
@@ -540,7 +540,7 @@ function formatDate(date) {
 }
 
 function updateScheduleDayHeaders() {
-    const dayNames = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Нд"];
+    const dayNames = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
     const weekStart = getWeekStart();
 
     dayNames.forEach((name, index) => {
