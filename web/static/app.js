@@ -729,8 +729,6 @@ async function exportScheduleImage(mode) {
             return;
         }
 
-        alert("JPEG: " + (blob.size / 1024 / 1024).toFixed(2) + " MB");
-
         const weekStart = getWeekStart();
         const weekEnd = new Date(weekStart);
         weekEnd.setDate(weekEnd.getDate() + 6);
@@ -771,27 +769,47 @@ async function exportScheduleImage(mode) {
         const file = new File([blob], fileName, { type: "image/jpeg" });
 
         if (mode === "share") {
-        alert("share=" + !!navigator.share + " canShare=" + !!navigator.canShare);
-        if (!navigator.share || !navigator.canShare || !navigator.canShare({ files: [file] })) {
-            alert("Файлове поширення не підтримується");
+            const tg = window.Telegram?.WebApp;
+
+            if (!tg?.shareMessage) {
+                alert("Поширення через Telegram не підтримується");
+                return;
+            }
+
+            try {
+                const response = await fetch("/api/export/share-prepared", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "image/jpeg",
+                        "X-Telegram-Init-Data": tg.initData || ""
+                    },
+                    body: blob
+                });
+
+                if (!response.ok) {
+                    const error = await response.json().catch(() => ({}));
+                    alert(error.detail || "Не вдалося підготувати поширення");
+                    return;
+                }
+
+                const data = await response.json();
+
+                tg.shareMessage(
+                    data.prepared_message_id,
+                    (error) => {
+                        if (error) {
+                            alert("Не вдалося відкрити меню поширення: " + error);
+                        }
+                    }
+                );
+            } catch (error) {
+                alert("Помилка підготовки поширення");
+            }
+
             return;
         }
 
-        try {
-            await navigator.share({
-                files: [file],
-                title: "Schedule"
-            });
-        } catch (error) {
-            if (error?.name !== "AbortError") {
-                alert("Не вдалося відкрити меню поширення");
-            }
-        }
-
-        return;
-    }
-
-    const url = URL.createObjectURL(blob);
+        const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.href = url;
         link.download = fileName;

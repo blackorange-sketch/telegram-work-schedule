@@ -6,6 +6,8 @@ import time
 import os
 import tempfile
 import uuid
+import urllib.parse
+import urllib.request
 
 from aiogram import Bot, Dispatcher
 from aiogram.filters import CommandStart
@@ -548,14 +550,14 @@ async def export_schedule(request: Request):
     if not data:
         raise HTTPException(status_code=400, detail="Порожній файл")
 
-    if not data.startswith(b"\x89PNG\r\n\x1a\n"):
-        raise HTTPException(status_code=400, detail="Очікується PNG")
+    if not data.startswith(b"\xff\xd8\xff"):
+        raise HTTPException(status_code=400, detail="Очікується JPEG")
 
     if len(data) > 10 * 1024 * 1024:
         raise HTTPException(status_code=400, detail="Файл завеликий")
 
     file_id = uuid.uuid4().hex
-    file_path = os.path.join(tempfile.gettempdir(), f"schedule-{file_id}.png")
+    file_path = os.path.join(tempfile.gettempdir(), f"schedule-{file_id}.jpg")
 
     with open(file_path, "wb") as file:
         file.write(data)
@@ -571,16 +573,97 @@ async def download_schedule(file_id: str):
     if not file_id.isalnum():
         raise HTTPException(status_code=400, detail="Некоректний файл")
 
-    file_path = os.path.join(tempfile.gettempdir(), f"schedule-{file_id}.png")
+    file_path = os.path.join(tempfile.gettempdir(), f"schedule-{file_id}.jpg")
 
     if not os.path.isfile(file_path):
         raise HTTPException(status_code=404, detail="Файл не знайдено")
 
     return FileResponse(
         file_path,
-        media_type="image/png",
-        filename="schedule.png"
+        media_type="image/jpeg",
+        filename="schedule.jpg"
     )
+
+
+@app.post("/api/export/share-prepared")
+async def share_prepared_schedule(request: Request):
+    init_data = request.headers.get("X-Telegram-Init-Data")
+    user = validate_telegram_init_data(init_data)
+
+    if not user:
+        raise HTTPException(status_code=401, detail="Некоректні дані Telegram")
+
+    data = await request.body()
+
+    if not data.startswith(b"\\xff\\xd8\\xff"):
+        raise HTTPException(status_code=400, detail="Очікується JPEG")
+
+    if len(data) > 5 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="JPEG завеликий для Telegram")
+
+    if not WEB_APP_URL:
+        raise HTTPException(status_code=500, detail="WEB_APP_URL не налаштований")
+
+    file_id = uuid.uuid4().hex
+    file_path = os.path.join(tempfile.gettempdir(), f"schedule-{file_id}.jpg")
+
+    with open(file_path, "wb") as file:
+        file.write(data)
+
+    photo_url = f"{WEB_APP_URL.rstrip('/')}/api/export/schedule/{file_id}"
+
+    result = {
+        "type": "photo",
+        "id": file_id,
+        "photo_url": photo_url,
+        "thumbnail_url": photo_url,
+        "caption": "📅 Schedule",
+    }
+
+    payload = urllib.parse.urlencode({
+        "user_id": str(user["id"]),
+        "result": json.dumps(result, ensure_ascii=False),
+        "allow_user_chats": "true",
+        "allow_group_chats": "true",
+        "allow_channel_chats": "true",
+    }).encode()
+
+    bot_api_url = f"https://api.telegram.org/bot{TOKEN}/savePreparedInlineMessage"
+
+    try:
+        request_obj = urllib.request.Request(
+            bot_api_url,
+            data=payload,
+            method="POST",
+            headers={"Content-Type": "application/x-www-form-urlencoded"},
+        )
+
+        with urllib.request.urlopen(request_obj, timeout=15) as response:
+            response_data = json.loads(response.read().decode())
+
+    except Exception as error:
+        raise HTTPException(
+            status_code=502,
+            detail=f"Помилка Telegram API: {error}",
+        )
+
+    if not response_data.get("ok"):
+        raise HTTPException(
+            status_code=502,
+            detail=response_data.get("description", "Telegram API error"),
+        )
+
+    prepared = response_data.get("result")
+
+    if not prepared or not prepared.get("id"):
+        raise HTTPException(
+            status_code=502,
+            detail="Telegram не повернув prepared message",
+        )
+
+    return {
+        "prepared_message_id": prepared["id"]
+    }
 
 
 # =========================
