@@ -42,7 +42,7 @@ function renderSchedule() {
         );
     });
 
-    workers.forEach(worker => {
+    [...workers].sort((a, b) => Number(a.is_reserve) - Number(b.is_reserve)).forEach(worker => {
         const row = document.createElement("tr");
 
         const name = document.createElement("td");
