@@ -8,15 +8,10 @@ if (tg.setHeaderColor) {
 }
 
 if (tg.setBackgroundColor) {
-if (tg.requestFullscreen) {
-    try {
-        tg.requestFullscreen();
-    } catch (error) {
-        tg.expand();
-    }
-} else {
-    tg.expand();
+    tg.setBackgroundColor("#f8f8fa");
 }
+
+if (tg.expand) {
     tg.expand();
 }
 
