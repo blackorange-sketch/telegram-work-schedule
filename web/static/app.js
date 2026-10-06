@@ -348,17 +348,11 @@ function renderSchedule() {
         const lunch = document.createElement("td");
         lunch.className = "lunch lunch-column";
 
-        const workerAssignment = scheduleAssignments.find(
-            assignment => assignment.worker_id === worker.id
-        );
-
-        const lunchInfo = workerAssignment
-            ? getLunchForWorker(worker.id, workerAssignment.shift)
-            : null;
+        const lunchInfo = getLunchForWorker(worker.id, scheduleShift);
 
         if (lunchInfo) {
             const setting = lunchSettings.find(item =>
-                item.shift === workerAssignment.shift &&
+                item.shift === scheduleShift &&
                 item.pair_number === lunchInfo.pairNumber
             );
 
@@ -374,11 +368,7 @@ function renderSchedule() {
                 const lunchHour = String(Math.floor(totalMinutes / 60)).padStart(2, "0");
                 const lunchMinute = String(totalMinutes % 60).padStart(2, "0");
 
-                const worker1 = setting.worker1_name || "";
-                const worker2 = setting.worker2_name || "";
-
-                lunch.textContent =
-                    `${lunchHour}: ${worker1} + ${worker2}`;
+                lunch.textContent = `${lunchHour}:${lunchMinute}`;
             } else {
                 lunch.textContent = "—";
             }
