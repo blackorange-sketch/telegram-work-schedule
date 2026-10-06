@@ -484,12 +484,12 @@ main {
 
     .schedule th,
     .schedule td {
-        height: 44px;
-        padding: 4px;
+        height: 32px;
+        padding: 3px;
     }
 
     .schedule th {
-        height: 38px;
+        height: 32px;
         font-size: 11px;
     }
 
