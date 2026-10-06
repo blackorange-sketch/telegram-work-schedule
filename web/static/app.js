@@ -729,16 +729,18 @@ async function exportScheduleImage(mode) {
             return;
         }
 
+        alert("JPEG: " + (blob.size / 1024 / 1024).toFixed(2) + " MB");
+
         const weekStart = getWeekStart();
         const weekEnd = new Date(weekStart);
         weekEnd.setDate(weekEnd.getDate() + 6);
-        const fileName = `${formatDate(weekStart)}_${formatDate(weekEnd).slice(5)}.png`;
+        const fileName = `${formatDate(weekStart)}_${formatDate(weekEnd).slice(5)}.jpg`;
 
         if (mode === "save") {
             const uploadResponse = await fetch("/api/export/schedule", {
                 method: "POST",
                 headers: {
-                    "Content-Type": "image/png"
+                    "Content-Type": "image/jpeg"
                 },
                 body: blob
             });
@@ -766,7 +768,7 @@ async function exportScheduleImage(mode) {
             return;
         }
 
-        const file = new File([blob], fileName, { type: "image/png" });
+        const file = new File([blob], fileName, { type: "image/jpeg" });
 
         if (mode === "share") {
         alert("share=" + !!navigator.share + " canShare=" + !!navigator.canShare);
@@ -797,7 +799,7 @@ async function exportScheduleImage(mode) {
         link.click();
         link.remove();
         URL.revokeObjectURL(url);
-    }, "image/png");
+    }, "image/jpeg", 0.95);
 }
 
 function bindScheduleButtons() {
