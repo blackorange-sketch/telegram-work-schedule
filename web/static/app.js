@@ -14,7 +14,6 @@ if (tg.requestFullscreen) {
 } else {
     tg.expand();
 }
-const scheduleTemplate = document.querySelector("main").innerHTML;
 
 let workers = [];
 let scheduleDays = [];
@@ -23,6 +22,7 @@ let scheduleAssignments = [];
 let scheduleLoaded = false;
 let changingStations = new Set();
 let workersScreenLoaded = false;
+let lunchScreenLoaded = false;
 
 async function loadScheduleAssignments() {
     const weekStart = formatDate(getWeekStart());
@@ -366,10 +366,12 @@ function updateWeek() {
 
 const navButtons = document.querySelectorAll(".bottom-nav button");
 navButtons[1].addEventListener("click", async () => {
+    showScreen("workersScreen");
     await showWorkersScreen();
     setActiveNav(1);
 });
 navButtons[2].addEventListener("click", async () => {
+    showScreen("lunchScreen");
     await showLunchScreen();
     setActiveNav(2);
 });
@@ -414,19 +416,22 @@ async function loadScheduleShift() {
 }
 
 async function showScheduleScreen() {
-    const main = document.querySelector("main");
-    main.innerHTML = scheduleTemplate;
+    const screen = document.getElementById("scheduleScreen");
 
     if (!scheduleLoaded) {
         await loadScheduleWorkers();
         await loadScheduleDays();
         await loadScheduleShift();
         await loadScheduleAssignments();
+
         scheduleLoaded = true;
+
+        renderSchedule();
+        bindScheduleButtons();
+        return;
     }
 
-    renderSchedule();
-    bindScheduleButtons();
+    screen.hidden = false;
 }
 function bindScheduleButtons() {
     document.getElementById("prevWeek").onclick = async () => {
@@ -509,6 +514,7 @@ function bindScheduleButtons() {
 
 
 navButtons[0].addEventListener("click", () => {
+    showScreen("scheduleScreen");
     showScheduleScreen();
     setActiveNav(0);
 });
@@ -519,10 +525,21 @@ function setActiveNav(index) {
     });
 }
 
+function showScreen(screenId) {
+    document.querySelectorAll("main > div[id$='Screen']").forEach(screen => {
+        screen.hidden = screen.id !== screenId;
+    });
+}
+
+showScreen("scheduleScreen");
 showScheduleScreen();
 
 async function showLunchScreen() {
-    const main = document.querySelector("main");
+    const screen = document.getElementById("lunchScreen");
+
+    if (lunchScreenLoaded) {
+        return;
+    }
 
     if (!workers.length) {
         await loadScheduleWorkers();
@@ -539,7 +556,7 @@ async function showLunchScreen() {
         </div>
     `).join("");
 
-    main.innerHTML = `
+    screen.innerHTML = `
         <section class="card">
             <div class="card-title">🍽 Обіди</div>
 
@@ -588,7 +605,10 @@ async function showLunchScreen() {
             </div>
         </div>
     `;
+
+    lunchScreenLoaded = true;
 }
+
 
 function openLunchWorkerModal(button) {
     const modal = document.getElementById("lunchModal");
@@ -628,14 +648,6 @@ function openLunchWorkerModal(button) {
     modal.classList.remove("hidden");
 }
 
-document.addEventListener("click", event => {
-    const button = event.target.closest(".lunch-worker-button");
-
-    if (button) {
-        openLunchWorkerModal(button);
-    }
-});
-
 function openLunchTimeModal(button) {
     const modal = document.getElementById("lunchModal");
     const title = document.getElementById("lunchModalTitle");
@@ -645,42 +657,43 @@ function openLunchTimeModal(button) {
     title.textContent = "Початок обіду";
     content.innerHTML = "";
 
-    const input = document.createElement("input");
-    input.type = "text";
-    input.inputMode = "numeric";
-    input.maxLength = 5;
-    input.placeholder = "HH:MM";
-    input.value = button.dataset.time || button.textContent;
+    const current = button.dataset.time || button.textContent;
+    const [currentHour, currentMinute] = current.split(":").map(Number);
 
-    input.style.width = "100%";
-    input.style.boxSizing = "border-box";
-    input.style.padding = "12px";
-    input.style.border = "1px solid var(--border)";
-    input.style.borderRadius = "9px";
-    input.style.background = "var(--bg)";
-    input.style.color = "var(--text)";
-    input.style.fontSize = "20px";
-    input.style.textAlign = "center";
-    input.style.fontVariantNumeric = "tabular-nums";
+    const picker = document.createElement("div");
+    picker.className = "lunch-time-picker";
 
-    content.appendChild(input);
+    const hour = document.createElement("select");
+    const minute = document.createElement("select");
+
+    for (let i = 0; i < 24; i++) {
+        const option = document.createElement("option");
+        option.value = String(i).padStart(2, "0");
+        option.textContent = option.value;
+        hour.appendChild(option);
+    }
+
+    for (let i = 0; i < 60; i += 10) {
+        const option = document.createElement("option");
+        option.value = String(i).padStart(2, "0");
+        option.textContent = option.value;
+        minute.appendChild(option);
+    }
+
+    hour.value = String(currentHour).padStart(2, "0");
+    minute.value = String(Math.floor(currentMinute / 10) * 10).padStart(2, "0");
+
+    picker.append(hour, document.createTextNode(" : "), minute);
+    content.appendChild(picker);
 
     const saveButton = document.createElement("button");
-    saveButton.className = "station-worker-option";
-    saveButton.textContent = "Зберегти";
-    saveButton.style.marginTop = "8px";
+    saveButton.className = "station-cancel-button";
+    saveButton.textContent = "Готово";
 
     saveButton.onclick = () => {
-        const value = input.value.trim();
-
-        if (!/^([01]\\d|2[0-3]):[0-5]\\d$/.test(value)) {
-            alert("Введіть час у форматі HH:MM");
-            return;
-        }
-
-        button.textContent = value;
-        button.dataset.time = value;
-
+        const time = `${hour.value}:${minute.value}`;
+        button.textContent = time;
+        button.dataset.time = time;
         modal.classList.add("hidden");
     };
 
@@ -697,17 +710,24 @@ function openLunchTimeModal(button) {
     };
 
     modal.classList.remove("hidden");
-
-    setTimeout(() => {
-        input.focus();
-        input.select();
-    }, 50);
 }
 
 document.addEventListener("click", event => {
-    const button = event.target.closest(".lunch-time-button");
+    const workerButton = event.target.closest(".lunch-worker-button");
 
-    if (button) {
-        openLunchTimeModal(button);
+    if (workerButton) {
+        openLunchWorkerModal(workerButton);
+        return;
+    }
+
+    const timeButton = event.target.closest(".lunch-time-button");
+
+    if (timeButton) {
+        openLunchTimeModal(timeButton);
+    }
+});
+
+
+
     }
 });

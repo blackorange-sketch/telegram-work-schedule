@@ -1,20 +1,35 @@
 async function showWorkersScreen() {
-    const main = document.querySelector("main");
+    const screen = document.getElementById("workersScreen");
 
-    main.innerHTML = `
-        <section class="card workers-card">
-            <div class="card-title">👥 Працівники</div>
-            <div id="workersList"></div><button id="addWorkerButton" class="add-worker-button">＋ Додати працівника</button>
-        <div id="workerModal" class="worker-modal hidden"><div class="worker-modal-box"><div class="worker-modal-title">Новий працівник</div><input id="workerNameInput" type="text" placeholder="Імʼя працівника"><div class="worker-modal-buttons"><button id="cancelWorkerButton">Скасувати</button><button id="saveWorkerButton">Додати</button></div></div></div></section>
-    `;
     if (!workersScreenLoaded) {
+        screen.innerHTML = `
+            <section class="card workers-card">
+                <div class="card-title">👥 Працівники</div>
+                <div id="workersList"></div>
+                <button id="addWorkerButton" class="add-worker-button">
+                    ＋ Додати працівника
+                </button>
+
+                <div id="workerModal" class="worker-modal hidden">
+                    <div class="worker-modal-box">
+                        <div class="worker-modal-title">Новий працівник</div>
+                        <input id="workerNameInput" type="text" placeholder="Імʼя працівника">
+                        <div class="worker-modal-buttons">
+                            <button id="cancelWorkerButton">Скасувати</button>
+                            <button id="saveWorkerButton">Додати</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        `;
+
         await loadWorkers();
         workersScreenLoaded = true;
-    } else {
-        renderWorkers(workers);
+        setupWorkerButtons();
+        return;
     }
 
-    setupWorkerButtons();
+    renderWorkers(workers);
 }
 
 async function loadWorkers() {
