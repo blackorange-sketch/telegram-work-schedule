@@ -666,7 +666,7 @@ main {
 
 /* Telegram top bar spacing */
 .header {
-    padding-top: calc(34px + env(safe-area-inset-top));
+    padding-top: calc(80px + env(safe-area-inset-top));
     padding-bottom: 10px;
 }
 
