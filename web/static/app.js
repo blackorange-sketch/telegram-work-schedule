@@ -1,4 +1,35 @@
-window.addEventListener("error", e => alert(`JS ERROR\nmessage: ${e.message}\nsource: ${e.filename}\nline: ${e.lineno}\ncolumn: ${e.colno}\nurl: ${location.href}`)); window.addEventListener("unhandledrejection", e => alert("PROMISE ERROR: " + (e.reason?.stack || e.reason)));
+window.addEventListener("error", e => {
+    const errorText = `JS ERROR
+message: ${e.message}
+source: ${e.filename}
+line: ${e.lineno}
+column: ${e.colno}
+url: ${location.href}`;
+
+    const modal = document.getElementById("errorModal");
+    const text = document.getElementById("errorModalText");
+
+    if (modal && text) {
+        text.textContent = errorText;
+        modal.classList.remove("hidden");
+    } else {
+        alert(errorText);
+    }
+});
+
+document.getElementById("copyErrorButton")?.addEventListener("click", async () => {
+    const text = document.getElementById("errorModalText")?.textContent || "";
+    try {
+        await navigator.clipboard.writeText(text);
+        alert("Помилку скопійовано");
+    } catch {
+        alert("Не вдалося скопіювати помилку");
+    }
+});
+
+document.getElementById("closeErrorButton")?.addEventListener("click", () => {
+    document.getElementById("errorModal")?.classList.add("hidden");
+}); window.addEventListener("unhandledrejection", e => alert("PROMISE ERROR: " + (e.reason?.stack || e.reason)));
 console.log("APP.JS START", Date.now());
 const tg = window.Telegram.WebApp;
 

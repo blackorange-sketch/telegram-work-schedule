@@ -163,5 +163,16 @@
 <script src="/static/workers.js?v=2"></script>
 <script src="/static/app.js?v=2"></script>
 
+    <div id="errorModal" class="station-modal hidden">
+        <div class="station-modal-box">
+            <div class="station-modal-title">JS Error</div>
+            <pre id="errorModalText" style="white-space: pre-wrap; max-height: 60vh; overflow: auto; font-size: 12px;"></pre>
+            <div style="display: flex; gap: 10px; margin-top: 15px;">
+                <button id="copyErrorButton" class="station-cancel-button">Копіювати</button>
+                <button id="closeErrorButton" class="station-cancel-button">Закрити</button>
+            </div>
+        </div>
+    </div>
+
 </body>
 </html>
