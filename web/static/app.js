@@ -54,7 +54,7 @@ async function checkAdminAccess() {
     }
 
     denied.style.display = "none";
-    document.querySelector(".app").style.display = "";
+    document.querySelector(".app").style.display = "block";
 
     return await response.json();
 }
