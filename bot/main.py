@@ -595,7 +595,7 @@ async def share_prepared_schedule(request: Request):
 
     data = await request.body()
 
-    if not data.startswith(b"\\xff\\xd8\\xff"):
+    if not data.startswith(b"\xff\xd8\xff"):
         raise HTTPException(status_code=400, detail="Очікується JPEG")
 
     if len(data) > 5 * 1024 * 1024:
