@@ -74,6 +74,16 @@ async def init_db():
             )
         """)
         await conn.execute("""
+            CREATE TABLE IF NOT EXISTS schedule_reserves (
+                id SERIAL PRIMARY KEY,
+                week_id INTEGER NOT NULL REFERENCES schedule_weeks(id) ON DELETE CASCADE,
+                work_date DATE NOT NULL,
+                worker_id INTEGER NOT NULL REFERENCES workers(id),
+                UNIQUE (week_id, work_date, worker_id)
+            )
+        """)
+
+        await conn.execute("""
             CREATE TABLE IF NOT EXISTS lunch_settings (
                 id SERIAL PRIMARY KEY,
                 week_id INTEGER NOT NULL REFERENCES schedule_weeks(id) ON DELETE CASCADE,
@@ -267,6 +277,21 @@ async def get_schedule_assignments(week_id):
         return [dict(row) for row in rows]
 
 
+async def get_schedule_reserves(week_id):
+    async with _pool.acquire() as conn:
+        rows = await conn.fetch("""
+            SELECT
+                sr.work_date,
+                sr.worker_id,
+                w.name AS worker_name
+            FROM schedule_reserves sr
+            JOIN workers w ON w.id = sr.worker_id
+            WHERE sr.week_id = $1
+            ORDER BY sr.work_date, sr.worker_id
+        """, week_id)
+        return [dict(row) for row in rows]
+
+
 async def generate_schedule_assignments(week_id, week_start, shift):
     async with _pool.acquire() as conn:
         existing = await conn.fetchval("""
@@ -282,7 +307,6 @@ async def generate_schedule_assignments(week_id, week_start, shift):
             SELECT id
             FROM workers
             WHERE active = TRUE
-              AND is_reserve = FALSE
             ORDER BY id
         """)
 
@@ -302,8 +326,19 @@ async def generate_schedule_assignments(week_id, week_start, shift):
             for row in days_off_rows
         }
 
+        previous_reserve_rows = await conn.fetch("""
+            SELECT DISTINCT worker_id
+            FROM schedule_reserves
+            WHERE work_date BETWEEN $1 AND $2
+        """, week_start - timedelta(days=7), week_start - timedelta(days=3))
+
+        previous_reserve_workers = {
+            row["worker_id"] for row in previous_reserve_rows
+        }
+
         stations = list(range(15, 25))
         used_by_worker = {worker_id: set() for worker_id in worker_ids}
+        reserve_count = {worker_id: 0 for worker_id in worker_ids}
 
         for day_offset in range(5):
             work_date = week_start + timedelta(days=day_offset)
@@ -317,12 +352,47 @@ async def generate_schedule_assignments(week_id, week_start, shift):
             if not eligible_workers:
                 continue
 
+            if len(eligible_workers) <= 10:
+                station_workers = eligible_workers[:]
+                random.shuffle(station_workers)
+                reserve_workers = []
+            else:
+                reserve_candidates = [
+                    worker_id
+                    for worker_id in eligible_workers
+                    if reserve_count[worker_id] == 0
+                ]
+
+                preferred_reserve = [
+                    worker_id
+                    for worker_id in reserve_candidates
+                    if worker_id not in previous_reserve_workers
+                ]
+
+                fallback_reserve = [
+                    worker_id
+                    for worker_id in reserve_candidates
+                    if worker_id in previous_reserve_workers
+                ]
+
+                random.shuffle(preferred_reserve)
+                random.shuffle(fallback_reserve)
+
+                reserve_workers = (
+                    preferred_reserve + fallback_reserve
+                )[:len(eligible_workers) - 10]
+
+                station_workers = [
+                    worker_id
+                    for worker_id in eligible_workers
+                    if worker_id not in reserve_workers
+                ]
+
             assignment = None
 
             for _ in range(1000):
-                available_workers = eligible_workers[:]
+                available_workers = station_workers[:]
                 random.shuffle(available_workers)
-                available_workers = available_workers[:10]
 
                 available_stations = stations[:]
                 random.shuffle(available_stations)
@@ -368,8 +438,19 @@ async def generate_schedule_assignments(week_id, week_start, shift):
 
                 used_by_worker[worker_id].add(station)
 
-        return True
+            for worker_id in reserve_workers:
+                await conn.execute("""
+                    INSERT INTO schedule_reserves (
+                        week_id,
+                        work_date,
+                        worker_id
+                    )
+                    VALUES ($1, $2, $3)
+                """, week_id, work_date, worker_id)
 
+                reserve_count[worker_id] += 1
+
+        return True
 
 async def update_worker(
     worker_id: int,
@@ -519,6 +600,12 @@ async def delete_schedule_assignments_for_week(week_id: int):
             DELETE FROM schedule_assignments
             WHERE week_id = $1
         """, week_id)
+
+        await conn.execute("""
+            DELETE FROM schedule_reserves
+            WHERE week_id = $1
+        """, week_id)
+
         return result
 
 

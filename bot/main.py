@@ -40,6 +40,7 @@ from bot.database import (
     create_schedule_days,
     update_schedule_day,
     get_schedule_assignments,
+    get_schedule_reserves,
     generate_schedule_assignments,
     set_schedule_assignment,
     delete_schedule_assignment,
@@ -314,10 +315,12 @@ async def schedule_assignments_get(week_start: str):
 
     week = await get_or_create_schedule_week(week_start)
     assignments = await get_schedule_assignments(week["id"])
+    reserves = await get_schedule_reserves(week["id"])
 
     return {
         "week": week,
-        "assignments": assignments
+        "assignments": assignments,
+        "reserves": reserves
     }
 
 

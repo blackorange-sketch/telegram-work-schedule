@@ -24,6 +24,7 @@ let workers = [];
 let scheduleDays = [];
 let scheduleShift = null;
 let scheduleAssignments = [];
+let scheduleReserves = [];
 let scheduleLoaded = false;
 let changingStations = new Set();
 let workersScreenLoaded = false;
@@ -64,6 +65,7 @@ async function loadScheduleAssignments() {
 
     const data = await response.json();
     scheduleAssignments = data.assignments;
+    scheduleReserves = data.reserves || [];
 }
 
 
@@ -450,13 +452,21 @@ function renderSchedule() {
                 String(dayOff.work_date).slice(0, 10) === workDate
             );
 
-            if (isDayOff) {
+            const isReserve = scheduleReserves.some(reserve =>
+            Number(reserve.worker_id) === Number(worker.id) &&
+            String(reserve.work_date).slice(0, 10) === workDate
+        );
+
+        if (isDayOff) {
                 cell.textContent = "Day off";
                 cell.className = "day-off";
                 cell.onclick = () => {
                     openDayOffModal(worker, workDate);
                 };
-            } else if (assignment) {
+            } else if (isReserve) {
+            cell.textContent = "Reserve";
+            cell.className = "reserve";
+        } else if (assignment) {
                 const station = document.createElement("div");
                 const stationKey = `${workDate}_${assignment.station}`;
                 station.className = changingStations.has(stationKey)
