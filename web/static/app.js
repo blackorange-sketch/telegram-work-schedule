@@ -103,6 +103,84 @@ function openStationModal(assignment, workDate) {
     modal.classList.remove("hidden");
 }
 
+function openStationChoiceModal(worker, workDate) {
+    const modal = document.getElementById("stationModal");
+    const title = document.getElementById("stationModalTitle");
+    const list = document.getElementById("stationWorkerList");
+    const clearButton = document.getElementById("clearStationButton");
+    const cancelButton = document.getElementById("cancelStationButton");
+
+    title.textContent = `Станція для ${worker.name}`;
+    list.innerHTML = "";
+
+    for (let station = 15; station <= 24; station++) {
+        const button = document.createElement("button");
+        button.className = "station-choice-option";
+        button.textContent = station;
+
+        button.onclick = () => {
+            const selectedAssignment = scheduleAssignments.find(item =>
+                item.work_date === workDate &&
+                item.station === station
+            );
+
+            if (selectedAssignment) {
+                const oldWorkerId = selectedAssignment.worker_id;
+                const oldWorkerName = selectedAssignment.worker_name;
+
+                const workerAssignment = scheduleAssignments.find(item =>
+                    item.work_date === workDate &&
+                    item.worker_id === worker.id
+                );
+
+                selectedAssignment.worker_id = worker.id;
+                selectedAssignment.worker_name = worker.name;
+
+                if (workerAssignment && workerAssignment !== selectedAssignment) {
+                    workerAssignment.worker_id = oldWorkerId;
+                    workerAssignment.worker_name = oldWorkerName;
+
+                    changingStations.add(
+                        `${workDate}_${workerAssignment.station}`
+                    );
+                }
+            } else {
+                scheduleAssignments.push({
+                    week_id: scheduleAssignments[0]?.week_id,
+                    work_date: workDate,
+                    worker_id: worker.id,
+                    worker_name: worker.name,
+                    station: station,
+                    shift: scheduleShift
+                });
+            }
+
+            changingStations.add(`${workDate}_${station}`);
+
+            modal.classList.add("hidden");
+            renderSchedule();
+        };
+
+        list.appendChild(button);
+    }
+
+    clearButton.style.display = "none";
+
+    cancelButton.onclick = () => {
+        modal.classList.add("hidden");
+        clearButton.style.display = "";
+    };
+
+    modal.onclick = event => {
+        if (event.target === modal) {
+            modal.classList.add("hidden");
+            clearButton.style.display = "";
+        }
+    };
+
+    modal.classList.remove("hidden");
+}
+
 function renderSchedule() {
     const body = document.getElementById("scheduleBody");
 
@@ -149,6 +227,10 @@ function renderSchedule() {
                 };
 
                 cell.appendChild(station);
+            } else {
+                cell.onclick = () => {
+                    openStationChoiceModal(worker, workDate);
+                };
             }
 
             row.appendChild(cell);
