@@ -343,3 +343,105 @@ async def set_worker_reserve(worker_id: int, is_reserve: bool):
             worker_id,
         )
     return dict(row) if row else None
+
+async def set_schedule_assignment(
+    week_id: int,
+    work_date,
+    worker_id: int,
+    station: int,
+    shift: int,
+):
+    async with _pool.acquire() as conn:
+        async with conn.transaction():
+            current_station = await conn.fetchrow("""
+                SELECT id, worker_id, station, shift
+                FROM schedule_assignments
+                WHERE week_id = $1
+                  AND work_date = $2
+                  AND worker_id = $3
+            """, week_id, work_date, worker_id)
+
+            station_assignment = await conn.fetchrow("""
+                SELECT id, worker_id, station, shift
+                FROM schedule_assignments
+                WHERE week_id = $1
+                  AND work_date = $2
+                  AND station = $3
+            """, week_id, work_date, station)
+
+            if station_assignment and station_assignment["worker_id"] != worker_id:
+                if current_station:
+                    await conn.execute("""
+                        UPDATE schedule_assignments
+                        SET worker_id = CASE
+                            WHEN id = $1 THEN $3
+                            WHEN id = $2 THEN $4
+                        END
+                        WHERE id IN ($1, $2)
+                    """,
+                        station_assignment["id"],
+                        current_station["id"],
+                        worker_id,
+                        station_assignment["worker_id"],
+                    )
+                else:
+                    await conn.execute("""
+                        UPDATE schedule_assignments
+                        SET worker_id = $1
+                        WHERE id = $2
+                    """, worker_id, station_assignment["id"])
+
+            elif current_station:
+                await conn.execute("""
+                    UPDATE schedule_assignments
+                    SET station = $1,
+                        shift = $2
+                    WHERE id = $3
+                """, station, shift, current_station["id"])
+
+            else:
+                await conn.execute("""
+                    INSERT INTO schedule_assignments (
+                        shift,
+                        week_id,
+                        work_date,
+                        worker_id,
+                        station
+                    )
+                    VALUES ($1, $2, $3, $4, $5)
+                """, shift, week_id, work_date, worker_id, station)
+
+            row = await conn.fetchrow("""
+                SELECT
+                    sa.id,
+                    sa.week_id,
+                    sa.work_date,
+                    sa.worker_id,
+                    w.name AS worker_name,
+                    sa.station,
+                    sa.shift
+                FROM schedule_assignments sa
+                JOIN workers w ON w.id = sa.worker_id
+                WHERE sa.week_id = $1
+                  AND sa.work_date = $2
+                  AND sa.worker_id = $3
+            """, week_id, work_date, worker_id)
+
+            return dict(row) if row else None
+
+
+async def delete_schedule_assignment(
+    week_id: int,
+    work_date,
+    station: int,
+):
+    async with _pool.acquire() as conn:
+        row = await conn.fetchrow("""
+            DELETE FROM schedule_assignments
+            WHERE week_id = $1
+              AND work_date = $2
+              AND station = $3
+            RETURNING id, week_id, work_date, worker_id, station, shift
+        """, week_id, work_date, station)
+
+        return dict(row) if row else None

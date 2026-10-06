@@ -34,6 +34,8 @@ from bot.database import (
     update_schedule_day,
     get_schedule_assignments,
     generate_schedule_assignments,
+    set_schedule_assignment,
+    delete_schedule_assignment,
 
 
 )
@@ -210,6 +212,75 @@ async def schedule_assignments_get(week_start: str):
         "week": week,
         "assignments": assignments
     }
+
+
+@app.put("/api/schedule/assignment")
+async def schedule_assignment_update(data: dict):
+    try:
+        from datetime import date
+
+        week_start = date.fromisoformat(data.get("week_start"))
+        work_date = date.fromisoformat(data.get("work_date"))
+        worker_id = int(data.get("worker_id"))
+        station = int(data.get("station"))
+        shift = int(data.get("shift"))
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="Некоректні дані призначення")
+
+    if station not in range(15, 25):
+        raise HTTPException(status_code=400, detail="Некоректна станція")
+
+    if shift not in (1, 2, 3):
+        raise HTTPException(status_code=400, detail="Некоректна зміна")
+
+    week = await get_or_create_schedule_week(week_start)
+
+    assignment = await set_schedule_assignment(
+        week["id"],
+        work_date,
+        worker_id,
+        station,
+        shift,
+    )
+
+    if assignment is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Призначення не знайдено",
+        )
+
+    return assignment
+
+
+@app.delete("/api/schedule/assignment")
+async def schedule_assignment_delete(data: dict):
+    try:
+        from datetime import date
+
+        week_start = date.fromisoformat(data.get("week_start"))
+        work_date = date.fromisoformat(data.get("work_date"))
+        station = int(data.get("station"))
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="Некоректні дані призначення")
+
+    if station not in range(15, 25):
+        raise HTTPException(status_code=400, detail="Некоректна станція")
+
+    week = await get_or_create_schedule_week(week_start)
+
+    assignment = await delete_schedule_assignment(
+        week["id"],
+        work_date,
+        station,
+    )
+
+    if assignment is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Призначення не знайдено",
+        )
+
+    return {"deleted": True, "assignment": assignment}
 
 
 @app.post("/api/schedule/generate")

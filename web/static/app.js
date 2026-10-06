@@ -39,6 +39,31 @@ async function loadScheduleAssignments() {
 }
 
 
+async function saveScheduleAssignment(assignment, workDate) {
+    const weekStart = formatDate(getWeekStart());
+
+    const response = await fetch("/api/schedule/assignment", {
+        method: "PUT",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            week_start: weekStart,
+            work_date: workDate,
+            worker_id: assignment.worker_id,
+            station: assignment.station,
+            shift: assignment.shift || scheduleShift
+        })
+    });
+
+    if (!response.ok) {
+        alert("Не вдалося зберегти зміну");
+        return false;
+    }
+
+    return true;
+}
+
 function openStationModal(assignment, workDate) {
     const modal = document.getElementById("stationModal");
     const title = document.getElementById("stationModalTitle");
@@ -54,7 +79,7 @@ function openStationModal(assignment, workDate) {
         button.className = "station-worker-option";
         button.textContent = worker.name;
 
-        button.onclick = () => {
+        button.onclick = async () => {
             const selectedAssignment = scheduleAssignments.find(item =>
                 item.work_date === workDate &&
                 item.worker_id === worker.id
@@ -67,10 +92,18 @@ function openStationModal(assignment, workDate) {
 
                 selectedAssignment.worker_id = assignment.worker_id;
                 selectedAssignment.worker_name = assignment.worker_name;
+
+                await saveScheduleAssignment(selectedAssignment, workDate);
             }
 
             assignment.worker_id = worker.id;
             assignment.worker_name = worker.name;
+
+            const saved = await saveScheduleAssignment(assignment, workDate);
+
+            if (!saved) {
+                return;
+            }
 
             modal.classList.add("hidden");
             renderSchedule();
@@ -79,12 +112,33 @@ function openStationModal(assignment, workDate) {
         list.appendChild(button);
     });
 
-    clearButton.onclick = () => {
+    clearButton.onclick = async () => {
+        const weekStart = formatDate(getWeekStart());
+
+        const response = await fetch("/api/schedule/assignment", {
+            method: "DELETE",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                week_start: weekStart,
+                work_date: workDate,
+                station: assignment.station
+            })
+        });
+
+        if (!response.ok) {
+            alert("Не вдалося звільнити станцію");
+            return;
+        }
+
         const index = scheduleAssignments.indexOf(assignment);
 
         if (index !== -1) {
             scheduleAssignments.splice(index, 1);
         }
+
+        changingStations.add(`${workDate}_${assignment.station}`);
 
         modal.classList.add("hidden");
         renderSchedule();
@@ -118,7 +172,7 @@ function openStationChoiceModal(worker, workDate) {
         button.className = "station-choice-option";
         button.textContent = station;
 
-        button.onclick = () => {
+        button.onclick = async () => {
             const selectedAssignment = scheduleAssignments.find(item =>
                 item.work_date === workDate &&
                 item.station === station
@@ -133,31 +187,55 @@ function openStationChoiceModal(worker, workDate) {
                     item.worker_id === worker.id
                 );
 
-                selectedAssignment.worker_id = worker.id;
-                selectedAssignment.worker_name = worker.name;
+                changingStations.add(`${workDate}_${station}`);
 
                 if (workerAssignment && workerAssignment !== selectedAssignment) {
-                    workerAssignment.worker_id = oldWorkerId;
-                    workerAssignment.worker_name = oldWorkerName;
-
                     changingStations.add(
                         `${workDate}_${workerAssignment.station}`
                     );
+
+                    workerAssignment.worker_id = oldWorkerId;
+                    workerAssignment.worker_name = oldWorkerName;
+
+                    await saveScheduleAssignment(workerAssignment, workDate);
+                }
+
+                selectedAssignment.worker_id = worker.id;
+                selectedAssignment.worker_name = worker.name;
+
+                const saved = await saveScheduleAssignment(
+                    selectedAssignment,
+                    workDate
+                );
+
+                if (!saved) {
+                    return;
                 }
             } else {
-                scheduleAssignments.push({
+                const assignment = {
                     week_id: scheduleAssignments[0]?.week_id,
                     work_date: workDate,
                     worker_id: worker.id,
                     worker_name: worker.name,
                     station: station,
                     shift: scheduleShift
-                });
+                };
+
+                const saved = await saveScheduleAssignment(
+                    assignment,
+                    workDate
+                );
+
+                if (!saved) {
+                    return;
+                }
+
+                scheduleAssignments.push(assignment);
+                changingStations.add(`${workDate}_${station}`);
             }
 
-            changingStations.add(`${workDate}_${station}`);
-
             modal.classList.add("hidden");
+            clearButton.style.display = "";
             renderSchedule();
         };
 
