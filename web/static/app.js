@@ -577,18 +577,27 @@ async function showLunchScreen() {
                 Зберегти
             </button>
         </section>
+
+        <div id="lunchModal" class="station-modal hidden">
+            <div class="station-modal-box">
+                <div id="lunchModalTitle" class="station-modal-title"></div>
+                <div id="lunchModalContent" class="station-worker-list"></div>
+                <button id="lunchModalCancel" class="station-cancel-button">
+                    Скасувати
+                </button>
+            </div>
+        </div>
     `;
 }
 
 function openLunchWorkerModal(button) {
-    const modal = document.getElementById("stationModal");
-    const title = document.getElementById("stationModalTitle");
-    const list = document.getElementById("stationWorkerList");
-    const clearButton = document.getElementById("clearStationButton");
-    const cancelButton = document.getElementById("cancelStationButton");
+    const modal = document.getElementById("lunchModal");
+    const title = document.getElementById("lunchModalTitle");
+    const content = document.getElementById("lunchModalContent");
+    const cancelButton = document.getElementById("lunchModalCancel");
 
     title.textContent = "Обрати працівника";
-    list.innerHTML = "";
+    content.innerHTML = "";
 
     workers
         .filter(worker => !worker.is_reserve)
@@ -603,20 +612,16 @@ function openLunchWorkerModal(button) {
                 modal.classList.add("hidden");
             };
 
-            list.appendChild(option);
+            content.appendChild(option);
         });
-
-    clearButton.style.display = "none";
 
     cancelButton.onclick = () => {
         modal.classList.add("hidden");
-        clearButton.style.display = "";
     };
 
     modal.onclick = event => {
         if (event.target === modal) {
             modal.classList.add("hidden");
-            clearButton.style.display = "";
         }
     };
 
@@ -632,14 +637,13 @@ document.addEventListener("click", event => {
 });
 
 function openLunchTimeModal(button) {
-    const modal = document.getElementById("stationModal");
-    const title = document.getElementById("stationModalTitle");
-    const list = document.getElementById("stationWorkerList");
-    const clearButton = document.getElementById("clearStationButton");
-    const cancelButton = document.getElementById("cancelStationButton");
+    const modal = document.getElementById("lunchModal");
+    const title = document.getElementById("lunchModalTitle");
+    const content = document.getElementById("lunchModalContent");
+    const cancelButton = document.getElementById("lunchModalCancel");
 
     title.textContent = "Початок обіду";
-    list.innerHTML = "";
+    content.innerHTML = "";
 
     const input = document.createElement("input");
     input.type = "text";
@@ -659,7 +663,7 @@ function openLunchTimeModal(button) {
     input.style.textAlign = "center";
     input.style.fontVariantNumeric = "tabular-nums";
 
-    list.appendChild(input);
+    content.appendChild(input);
 
     const saveButton = document.createElement("button");
     saveButton.className = "station-worker-option";
@@ -678,22 +682,17 @@ function openLunchTimeModal(button) {
         button.dataset.time = value;
 
         modal.classList.add("hidden");
-        clearButton.style.display = "";
     };
 
-    list.appendChild(saveButton);
-
-    clearButton.style.display = "none";
+    content.appendChild(saveButton);
 
     cancelButton.onclick = () => {
         modal.classList.add("hidden");
-        clearButton.style.display = "";
     };
 
     modal.onclick = event => {
         if (event.target === modal) {
             modal.classList.add("hidden");
-            clearButton.style.display = "";
         }
     };
 
