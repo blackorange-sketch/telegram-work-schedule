@@ -19,11 +19,40 @@ url: ${location.href}`;
 
 document.getElementById("copyErrorButton")?.addEventListener("click", async () => {
     const text = document.getElementById("errorModalText")?.textContent || "";
+
     try {
-        await navigator.clipboard.writeText(text);
+        if (navigator.clipboard?.writeText) {
+            await navigator.clipboard.writeText(text);
+        } else {
+            throw new Error("Clipboard API unavailable");
+        }
+
         alert("Помилку скопійовано");
     } catch {
-        alert("Не вдалося скопіювати помилку");
+        const textarea = document.createElement("textarea");
+        textarea.value = text;
+        textarea.style.position = "fixed";
+        textarea.style.opacity = "0";
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+
+        try {
+            const copied = document.execCommand("copy");
+            if (copied) {
+                alert("Помилку скопійовано");
+            } else {
+                throw new Error("Copy command failed");
+            }
+        } catch {
+            textarea.style.position = "static";
+            textarea.style.opacity = "1";
+            textarea.style.width = "100%";
+            textarea.style.height = "150px";
+            alert("Автоматичне копіювання недоступне. Текст виділено — скопіюй його вручну.");
+        }
+
+        textarea.remove();
     }
 });
 
