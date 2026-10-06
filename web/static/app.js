@@ -711,7 +711,7 @@ async function exportScheduleImage(mode) {
             const lines = text.split(/\n+/).map(line => line.trim()).filter(Boolean);
 
             lines.slice(0, 2).forEach((line, index) => {
-                ctx.fillText(line, x + 10, y + 22 + index * 18);
+                ctx.fillText(line, x + 10, y + 22 + index * 22);
             });
 
             x += width;
