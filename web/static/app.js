@@ -535,9 +535,8 @@ async function showLunchScreen() {
         )
         .join("");
 
-    const pairs = Array.from({ length: 5 }, (_, index) => `
+    const pairs = Array.from({ length: 5 }, () => `
         <div class="lunch-pair">
-            <strong>Пара ${index + 1}</strong>
             <select class="lunch-worker">${options}</select>
             <select class="lunch-worker">${options}</select>
         </div>
@@ -547,11 +546,30 @@ async function showLunchScreen() {
         <section class="card">
             <div class="card-title">🍽 Обіди</div>
 
-            <div class="lunch-settings">
-                <label>
-                    Час першої пари
-                    <input id="lunchStartTime" type="time" value="11:00">
-                </label>
+            <div class="lunch-shifts">
+                <div class="lunch-shift">
+                    <strong>Зміна 1</strong>
+                    <label>
+                        Початок обіду
+                        <input type="time" class="lunch-start-time" value="10:00">
+                    </label>
+                </div>
+
+                <div class="lunch-shift">
+                    <strong>Зміна 2</strong>
+                    <label>
+                        Початок обіду
+                        <input type="time" class="lunch-start-time" value="18:00">
+                    </label>
+                </div>
+
+                <div class="lunch-shift">
+                    <strong>Зміна 3</strong>
+                    <label>
+                        Початок обіду
+                        <input type="time" class="lunch-start-time" value="02:00">
+                    </label>
+                </div>
             </div>
 
             <div class="lunch-pairs">

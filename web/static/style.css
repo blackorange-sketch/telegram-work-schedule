@@ -864,3 +864,65 @@ main {
 .lunch-pair strong {
     font-size: 13px;
 }
+
+.lunch-shifts {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 10px;
+}
+
+.lunch-shift {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 8px 10px;
+    background: var(--bg);
+    border-radius: 10px;
+}
+
+.lunch-shift label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+}
+
+.lunch-shift input {
+    width: 86px;
+    box-sizing: border-box;
+    padding: 7px 6px;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    background: var(--card);
+    color: var(--text);
+    font-size: 14px;
+}
+
+.lunch-pairs {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 10px;
+}
+
+.lunch-pair {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 6px;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 6px;
+    background: var(--bg);
+    border-radius: 10px;
+}
+
+.lunch-pair select {
+    width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
+    padding: 8px 6px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
