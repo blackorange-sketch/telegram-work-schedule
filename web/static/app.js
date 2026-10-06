@@ -260,8 +260,33 @@ function openStationChoiceModal(worker, workDate) {
     modal.classList.remove("hidden");
 }
 
+function getLunchForWorker(workerId, shift) {
+    const setting = lunchSettings.find(item =>
+        item.shift === shift &&
+        (item.worker1_id === workerId || item.worker2_id === workerId)
+    );
+
+    if (!setting) {
+        return null;
+    }
+
+    const pairNumber = setting.pair_number;
+    const pairSettings = lunchSettings.find(item =>
+        item.shift === shift &&
+        item.pair_number === pairNumber
+    );
+
+    return {
+        pairNumber,
+        startTime: pairSettings?.start_time
+            ? String(pairSettings.start_time).slice(0, 5)
+            : null
+    };
+}
+
 function renderSchedule() {
     const body = document.getElementById("scheduleBody");
+    updateScheduleDayHeaders();
 
     body.innerHTML = "";
 
@@ -317,7 +342,44 @@ function renderSchedule() {
 
         const lunch = document.createElement("td");
         lunch.className = "lunch lunch-column";
-        lunch.textContent = "—";
+
+        const workerAssignment = scheduleAssignments.find(
+            assignment => assignment.worker_id === worker.id
+        );
+
+        const lunchInfo = workerAssignment
+            ? getLunchForWorker(worker.id, workerAssignment.shift)
+            : null;
+
+        if (lunchInfo) {
+            const setting = lunchSettings.find(item =>
+                item.shift === workerAssignment.shift &&
+                item.pair_number === lunchInfo.pairNumber
+            );
+
+            if (setting) {
+                const [hour, minute] = String(setting.start_time)
+                    .slice(0, 5)
+                    .split(":")
+                    .map(Number);
+
+                const totalMinutes =
+                    (hour * 60 + minute + (lunchInfo.pairNumber - 1) * 30) % 1440;
+
+                const lunchHour = String(Math.floor(totalMinutes / 60)).padStart(2, "0");
+                const lunchMinute = String(totalMinutes % 60).padStart(2, "0");
+
+                const worker1 = setting.worker1_name || "";
+                const worker2 = setting.worker2_name || "";
+
+                lunch.textContent =
+                    `${lunchHour}: ${worker1} + ${worker2}`;
+            } else {
+                lunch.textContent = "—";
+            }
+        } else {
+            lunch.textContent = "—";
+        }
 
         row.appendChild(lunch);
         body.appendChild(row);
@@ -348,6 +410,24 @@ function formatDate(date) {
     const month = String(date.getMonth() + 1).padStart(2, "0");
     const day = String(date.getDate()).padStart(2, "0");
     return `${year}-${month}-${day}`;
+}
+
+function updateScheduleDayHeaders() {
+    const dayNames = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Нд"];
+    const weekStart = getWeekStart();
+
+    dayNames.forEach((name, index) => {
+        const date = new Date(weekStart);
+        date.setDate(date.getDate() + index);
+
+        const element = document.getElementById(`scheduleDay${index}`);
+
+        if (element) {
+            const day = String(date.getDate()).padStart(2, "0");
+            const month = String(date.getMonth() + 1).padStart(2, "0");
+            element.textContent = `${name} ${day}.${month}`;
+        }
+    });
 }
 
 
@@ -424,6 +504,7 @@ async function showScheduleScreen() {
         await loadScheduleDays();
         await loadScheduleShift();
         await loadScheduleAssignments();
+        await loadLunchSettings();
 
         scheduleLoaded = true;
 
@@ -441,6 +522,7 @@ function bindScheduleButtons() {
         await loadScheduleDays();
     await loadScheduleShift();
     await loadScheduleAssignments();
+        await loadLunchSettings();
         renderSchedule();
     };
 
@@ -450,6 +532,7 @@ function bindScheduleButtons() {
         await loadScheduleDays();
     await loadScheduleShift();
     await loadScheduleAssignments();
+        await loadLunchSettings();
         renderSchedule();
     };
     document.getElementById("generateScheduleButton").onclick = async () => {
