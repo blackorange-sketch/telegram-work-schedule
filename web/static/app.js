@@ -1,4 +1,5 @@
-window.addEventListener("error", e => alert("JS ERROR: " + (e.error?.stack || `${e.message} | ${e.filename}:${e.lineno}:${e.colno}`))); window.addEventListener("unhandledrejection", e => alert("PROMISE ERROR: " + (e.reason?.stack || e.reason)));
+window.addEventListener("error", e => alert(`JS ERROR\nmessage: ${e.message}\nsource: ${e.filename}\nline: ${e.lineno}\ncolumn: ${e.colno}\nurl: ${location.href}`)); window.addEventListener("unhandledrejection", e => alert("PROMISE ERROR: " + (e.reason?.stack || e.reason)));
+console.log("APP.JS START", Date.now());
 const tg = window.Telegram.WebApp;
 
 tg.ready();
