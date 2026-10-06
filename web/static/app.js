@@ -726,8 +726,3 @@ document.addEventListener("click", event => {
         openLunchTimeModal(timeButton);
     }
 });
-
-
-
-    }
-});
