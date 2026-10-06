@@ -369,6 +369,11 @@ navButtons[1].addEventListener("click", async () => {
     await showWorkersScreen();
     setActiveNav(1);
 });
+navButtons[2].addEventListener("click", async () => {
+    await showLunchScreen();
+    setActiveNav(2);
+});
+
 
 async function loadScheduleWorkers() {
     const response = await fetch("/api/workers");
@@ -515,3 +520,47 @@ function setActiveNav(index) {
 }
 
 showScheduleScreen();
+
+async function showLunchScreen() {
+    const main = document.querySelector("main");
+
+    if (!workers.length) {
+        await loadScheduleWorkers();
+    }
+
+    const options = workers
+        .filter(worker => !worker.is_reserve)
+        .map(worker =>
+            `<option value="${worker.id}">${worker.name}</option>`
+        )
+        .join("");
+
+    const pairs = Array.from({ length: 5 }, (_, index) => `
+        <div class="lunch-pair">
+            <strong>Пара ${index + 1}</strong>
+            <select class="lunch-worker">${options}</select>
+            <select class="lunch-worker">${options}</select>
+        </div>
+    `).join("");
+
+    main.innerHTML = `
+        <section class="card">
+            <div class="card-title">🍽 Обіди</div>
+
+            <div class="lunch-settings">
+                <label>
+                    Час першої пари
+                    <input id="lunchStartTime" type="time" value="11:00">
+                </label>
+            </div>
+
+            <div class="lunch-pairs">
+                ${pairs}
+            </div>
+
+            <button class="add-worker-button">
+                Зберегти
+            </button>
+        </section>
+    `;
+}

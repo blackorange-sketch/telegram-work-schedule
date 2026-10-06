@@ -816,3 +816,51 @@ main {
     transform: scale(0.97);
     opacity: 0.7;
 }
+
+/* LUNCH SCREEN */
+.lunch-settings {
+    padding: 12px;
+    background: var(--bg);
+    border-radius: 12px;
+    margin-bottom: 10px;
+}
+
+.lunch-settings label {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.lunch-settings input,
+.lunch-pair select {
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    background: var(--card);
+    color: var(--text);
+    padding: 8px 10px;
+    font-size: 14px;
+}
+
+.lunch-pairs {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.lunch-pair {
+    display: grid;
+    grid-template-columns: 54px 1fr 1fr;
+    align-items: center;
+    gap: 6px;
+    padding: 8px;
+    background: var(--bg);
+    border-radius: 12px;
+}
+
+.lunch-pair strong {
+    font-size: 13px;
+}
