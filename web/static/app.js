@@ -21,6 +21,7 @@ let scheduleDays = [];
 let scheduleShift = null;
 let scheduleAssignments = [];
 let scheduleLoaded = false;
+let changingStations = new Set();
 let workersScreenLoaded = false;
 
 async function loadScheduleAssignments() {
@@ -59,7 +60,11 @@ function openStationModal(assignment, workDate) {
                 item.worker_id === worker.id
             );
 
+            changingStations.add(`${workDate}_${assignment.station}`);
+
             if (selectedAssignment && selectedAssignment !== assignment) {
+                changingStations.add(`${workDate}_${selectedAssignment.station}`);
+
                 selectedAssignment.worker_id = assignment.worker_id;
                 selectedAssignment.worker_name = assignment.worker_name;
             }
@@ -133,7 +138,10 @@ function renderSchedule() {
 
             if (assignment) {
                 const station = document.createElement("div");
-                station.className = "station";
+                const stationKey = `${workDate}_${assignment.station}`;
+                station.className = changingStations.has(stationKey)
+                    ? "station station-changing"
+                    : "station";
                 station.textContent = assignment.station;
 
                 station.onclick = () => {
@@ -153,6 +161,12 @@ function renderSchedule() {
         row.appendChild(lunch);
         body.appendChild(row);
     });
+
+    if (changingStations.size) {
+        setTimeout(() => {
+            changingStations.clear();
+        }, 600);
+    }
 }
 
 renderSchedule();

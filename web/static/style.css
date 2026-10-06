@@ -743,3 +743,52 @@ main {
 .station-clear-button {
     color: var(--accent);
 }
+
+/* Station interaction animations */
+.station-worker-option,
+.station-clear-button,
+.station-cancel-button {
+    transition: transform 0.12s ease, opacity 0.12s ease;
+}
+
+.station-worker-option:active,
+.station-clear-button:active,
+.station-cancel-button:active {
+    transform: scale(0.97);
+    opacity: 0.7;
+}
+
+.station.station-changing {
+    animation: stationChanging 0.45s ease;
+}
+
+@keyframes stationChanging {
+    0% {
+        transform: scale(1);
+    }
+    45% {
+        transform: scale(1.16);
+    }
+    100% {
+        transform: scale(1);
+    }
+}
+
+.station.station-changing {
+    animation: stationChanging 0.55s ease;
+}
+
+@keyframes stationChanging {
+    0% {
+        transform: scale(1);
+        color: var(--text);
+    }
+    40% {
+        transform: scale(1.16);
+        color: var(--accent);
+    }
+    100% {
+        transform: scale(1);
+        color: var(--text);
+    }
+}
