@@ -1,5 +1,6 @@
 console.log("APP.JS START", Date.now());
 const tg = window.Telegram.WebApp;
+let preparedShareMessageId = null;
 tg.onEvent("shareMessageSent", () => console.log("SHARE SENT")); tg.onEvent("shareMessageFailed", (error) => console.log("SHARE FAILED:", error));
 
 tg.ready();
@@ -767,6 +768,30 @@ async function exportScheduleImage(mode) {
             return;
         }
 
+        if (mode === "prepare-share") {
+            const tg = window.Telegram?.WebApp;
+            if (!tg?.shareMessage) return;
+            try {
+                const response = await fetch("/api/export/share-prepared", {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "image/jpeg",
+                        "X-Telegram-Init-Data": tg.initData || ""
+                    },
+                    body: blob
+                });
+                if (!response.ok) return;
+                const data = await response.json();
+                preparedShareMessageId = data.prepared_message_id || null;
+                console.log("SHARE PREPARED:", preparedShareMessageId);
+            } catch (error) {
+                preparedShareMessageId = null;
+                console.log("SHARE PREPARE ERROR:", error);
+            }
+            return;
+        }
+
+
         const file = new File([blob], fileName, { type: "image/jpeg" });
 
         if (mode === "share") {
@@ -813,9 +838,13 @@ async function exportScheduleImage(mode) {
         const link = document.createElement("a");
         link.href = url;
         link.download = fileName;
-        document.body.appendChild(link);
-        link.click();
-        link.remove();
+    document.getElementById("shareScheduleImageButton").onclick = () => {
+        exportModal.classList.add("hidden");
+        const tg = window.Telegram?.WebApp;
+        if (!tg?.shareMessage) { alert("Поширення через Telegram не підтримується"); return; }
+        if (!preparedShareMessageId) { alert("Файл ще готується, спробуйте ще раз через секунду"); return; }
+        tg.shareMessage(preparedShareMessageId, (sent) => console.log("SHARE CALLBACK:", sent));
+    };
         URL.revokeObjectURL(url);
     }, "image/jpeg", 0.95);
 }
@@ -825,6 +854,7 @@ function bindScheduleButtons() {
 
     document.getElementById("exportScheduleButton").onclick = () => {
         exportModal.classList.remove("hidden");
+        exportScheduleImage("prepare-share");
     };
 
     document.getElementById("saveScheduleImageButton").onclick = async () => {
