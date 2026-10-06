@@ -478,6 +478,20 @@ main {
    ========================= */
 
 @media (max-width: 380px) {
+    .schedule {
+        font-size: 12px;
+    }
+
+    .schedule th,
+    .schedule td {
+        height: 44px;
+        padding: 4px;
+    }
+
+    .schedule th {
+        height: 38px;
+        font-size: 11px;
+    }
 
     .name-column {
         width: 105px;
@@ -485,12 +499,16 @@ main {
         max-width: 105px;
     }
 
-    .schedule th,
-    .schedule td {
-        padding-left: 7px;
-        padding-right: 7px;
+    .schedule th:not(.name-column):not(.lunch-column),
+    .schedule td:not(.name-column):not(.lunch-column) {
+        width: 48px;
+        min-width: 48px;
     }
 
+    .lunch-column {
+        width: 58px;
+        min-width: 58px;
+    }
 }
 
 /* Працівники */
