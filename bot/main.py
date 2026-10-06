@@ -630,21 +630,55 @@ async def share_prepared_schedule(request: Request):
 
     bot_api_url = f"https://api.telegram.org/bot{TOKEN}/savePreparedInlineMessage"
 
-    try:
-        request_obj = urllib.request.Request(
-            bot_api_url,
-            data=payload,
-            method="POST",
-            headers={"Content-Type": "application/x-www-form-urlencoded"},
-        )
+    response_data = None
+    last_error = None
 
-        with urllib.request.urlopen(request_obj, timeout=15) as response:
-            response_data = json.loads(response.read().decode())
+    for attempt, delay in enumerate((0, 0.3, 0.8), start=1):
+        if delay:
+            await asyncio.sleep(delay)
 
-    except Exception as error:
+        started_at = time.monotonic()
+        print(f"SHARE PREPARED attempt={attempt} started")
+
+        try:
+            request_obj = urllib.request.Request(
+                bot_api_url,
+                data=payload,
+                method="POST",
+                headers={"Content-Type": "application/x-www-form-urlencoded"},
+            )
+
+            with urllib.request.urlopen(request_obj, timeout=15) as response:
+                response_data = json.loads(response.read().decode())
+
+            elapsed = time.monotonic() - started_at
+            print(
+                f"SHARE PREPARED attempt={attempt} "
+                f"elapsed={elapsed:.3f}s "
+                f"ok={response_data.get('ok')}"
+            )
+
+            if response_data.get("ok"):
+                break
+
+            last_error = response_data.get(
+                "description",
+                "Telegram API error",
+            )
+
+        except Exception as error:
+            elapsed = time.monotonic() - started_at
+            last_error = str(error)
+            print(
+                f"SHARE PREPARED attempt={attempt} "
+                f"elapsed={elapsed:.3f}s "
+                f"error={last_error}"
+            )
+
+    if not response_data or not response_data.get("ok"):
         raise HTTPException(
             status_code=502,
-            detail=f"Помилка Telegram API: {error}",
+            detail=f"Помилка Telegram API: {last_error}",
         )
 
     if not response_data.get("ok"):
