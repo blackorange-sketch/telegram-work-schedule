@@ -260,3 +260,5 @@ function setActiveNav(index) {
         button.classList.toggle("active", i === index);
     });
 }
+
+showScheduleScreen();
