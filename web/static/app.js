@@ -1,9 +1,28 @@
 console.log("APP.JS START", Date.now());
 const tg = window.Telegram.WebApp;
+
+async function checkAdminAccess() {
+    const response = await fetch("/api/auth/me", {
+        headers: {
+            "X-Telegram-Init-Data": tg.initData || ""
+        }
+    });
+
+    if (!response.ok) {
+        document.body.innerHTML = "<main style=\"padding:24px;font-family:sans-serif;text-align:center\"><h2>Доступ заборонено</h2><p>Цей Mini App доступний лише адміністраторам.</p></main>";
+        throw new Error("Admin access denied");
+    }
+
+    return await response.json();
+}
 let preparedShareMessageId = null;
 tg.onEvent("shareMessageSent", () => console.log("SHARE SENT")); tg.onEvent("shareMessageFailed", (error) => console.log("SHARE FAILED:", error));
 
-tg.ready();
+checkAdminAccess().then(() => {
+    tg.ready();
+}).catch((error) => {
+    console.error("ADMIN AUTH:", error);
+});
 
 if (tg.setHeaderColor) {
     tg.setHeaderColor("#f8f8fa");
@@ -244,6 +263,36 @@ function openStationChoiceModal(worker, workDate) {
 
     list.appendChild(dayOffButton);
 
+    const reserveButton = document.createElement("button");
+    reserveButton.className = "station-choice-option";
+    reserveButton.textContent = "Встановити Reserve";
+
+    reserveButton.onclick = async () => {
+        const response = await fetch("/api/schedule/reserve", {
+            method: "PUT",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                week_start: formatDate(getWeekStart()),
+                work_date: workDate,
+                worker_id: worker.id
+            })
+        });
+
+        if (!response.ok) {
+            alert("Не вдалося встановити Reserve");
+            return;
+        }
+
+        modal.classList.add("hidden");
+        await loadScheduleAssignments();
+        renderSchedule();
+        prepareShareInBackground();
+    };
+
+    list.appendChild(reserveButton);
+
     for (let station = 15; station <= 24; station++) {
         const button = document.createElement("button");
         button.className = "station-choice-option";
@@ -475,6 +524,23 @@ function renderSchedule() {
             } else if (isReserve) {
             cell.textContent = "Reserve";
             cell.className = "reserve";
+            cell.onclick = async () => {
+                const weekStart = formatDate(getWeekStart());
+
+                const response = await fetch(
+                    `/api/schedule/reserve?week_start=${weekStart}&work_date=${workDate}&worker_id=${worker.id}`,
+                    { method: "DELETE" }
+                );
+
+                if (!response.ok) {
+                    alert("Не вдалося зняти Reserve");
+                    return;
+                }
+
+                await loadScheduleAssignments();
+                renderSchedule();
+                prepareShareInBackground();
+            };
         } else if (assignment) {
                 const station = document.createElement("div");
                 const stationKey = `${workDate}_${assignment.station}`;

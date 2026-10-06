@@ -42,6 +42,8 @@ from bot.database import (
     update_schedule_day,
     get_schedule_assignments,
     get_schedule_reserves,
+    set_schedule_reserve,
+    delete_schedule_reserve,
     generate_schedule_assignments,
     set_schedule_assignment,
     delete_schedule_assignment,
@@ -60,6 +62,7 @@ load_dotenv()
 
 TOKEN = os.getenv("BOT_TOKEN")
 WEB_APP_URL = os.getenv("WEB_APP_URL")
+ADMIN_IDS = {int(x.strip()) for x in os.getenv("ADMIN_IDS", "").split(",") if x.strip().isdigit()}
 
 def validate_telegram_init_data(init_data):
     if not TOKEN or not init_data:
@@ -103,8 +106,23 @@ def validate_telegram_init_data(init_data):
         return None
 
 
+def require_admin(request: Request):
+    init_data = request.headers.get("X-Telegram-Init-Data")
+    user = validate_telegram_init_data(init_data)
+    if not user or user.get("id") not in ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ дозволено лише адміністраторам")
+    return user
+
+
 dp = Dispatcher()
 app = FastAPI()
+
+@app.middleware("http")
+async def admin_api_middleware(request: Request, call_next):
+    if request.url.path.startswith("/api/") and request.url.path != "/api/auth/me":
+        require_admin(request)
+
+    return await call_next(request)
 
 
 # =========================
@@ -126,6 +144,12 @@ async def index():
 # =========================
 # Workers API
 # =========================
+
+@app.get("/api/auth/me")
+async def auth_me(request: Request):
+    user = require_admin(request)
+    return {"authorized": True, "user_id": user["id"]}
+
 
 @app.get("/api/workers")
 async def workers_list():
@@ -392,6 +416,43 @@ async def schedule_assignment_delete(data: dict):
         )
 
     return {"deleted": True, "assignment": assignment}
+
+
+@app.put("/api/schedule/reserve")
+async def schedule_reserve_put(data: dict):
+    from datetime import date
+
+    try:
+        week_start = date.fromisoformat(data["week_start"])
+        work_date = date.fromisoformat(data["work_date"])
+        worker_id = int(data["worker_id"])
+    except (KeyError, TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="Некоректні дані Reserve")
+
+    week = await get_or_create_schedule_week(week_start)
+    await set_schedule_reserve(week["id"], work_date, worker_id)
+
+    return {"ok": True}
+
+
+@app.delete("/api/schedule/reserve")
+async def schedule_reserve_delete(
+    week_start: str,
+    work_date: str,
+    worker_id: int,
+):
+    from datetime import date
+
+    try:
+        week_start = date.fromisoformat(week_start)
+        work_date = date.fromisoformat(work_date)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Некоректна дата")
+
+    week = await get_or_create_schedule_week(week_start)
+    await delete_schedule_reserve(week["id"], work_date, worker_id)
+
+    return {"ok": True}
 
 
 @app.post("/api/schedule/generate")

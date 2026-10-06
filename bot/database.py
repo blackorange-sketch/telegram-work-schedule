@@ -517,6 +517,13 @@ async def set_schedule_assignment(
 ):
     async with _pool.acquire() as conn:
         async with conn.transaction():
+            await conn.execute("""
+                DELETE FROM schedule_reserves
+                WHERE week_id = $1
+                  AND work_date = $2
+                  AND worker_id = $3
+            """, week_id, work_date, worker_id)
+
             current_station = await conn.fetchrow("""
                 SELECT id, worker_id, station, shift
                 FROM schedule_assignments
@@ -592,6 +599,46 @@ async def set_schedule_assignment(
             """, week_id, work_date, worker_id)
 
             return dict(row) if row else None
+
+
+async def set_schedule_reserve(
+    week_id: int,
+    work_date,
+    worker_id: int,
+):
+    async with _pool.acquire() as conn:
+        async with conn.transaction():
+            await conn.execute("""
+                DELETE FROM schedule_assignments
+                WHERE week_id = $1
+                  AND work_date = $2
+                  AND worker_id = $3
+            """, week_id, work_date, worker_id)
+
+            await conn.execute("""
+                INSERT INTO schedule_reserves (
+                    week_id,
+                    work_date,
+                    worker_id
+                )
+                VALUES ($1, $2, $3)
+                ON CONFLICT (week_id, work_date, worker_id)
+                DO NOTHING
+            """, week_id, work_date, worker_id)
+
+
+async def delete_schedule_reserve(
+    week_id: int,
+    work_date,
+    worker_id: int,
+):
+    async with _pool.acquire() as conn:
+        await conn.execute("""
+            DELETE FROM schedule_reserves
+            WHERE week_id = $1
+              AND work_date = $2
+              AND worker_id = $3
+        """, week_id, work_date, worker_id)
 
 
 async def delete_schedule_assignments_for_week(week_id: int):
