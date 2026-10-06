@@ -20,6 +20,8 @@ window.fetch = (input, init = {}) => {
 };
 
 async function checkAdminAccess() {
+    const denied = document.getElementById("accessDenied");
+
     const response = await fetch("/api/auth/me", {
         headers: {
             "X-Telegram-Init-Data": tg.initData || ""
@@ -27,14 +29,11 @@ async function checkAdminAccess() {
     });
 
     if (!response.ok) {
-        const denied = document.createElement("main");
-        denied.style.cssText = "padding:24px;font-family:sans-serif;text-align:center";
         denied.innerHTML = "<h2>Доступ заборонено</h2><p>Цей Mini App доступний лише адміністраторам.</p>";
-        document.body.appendChild(denied);
-
         throw new Error("Admin access denied");
     }
 
+    denied.style.display = "none";
     document.querySelector(".app").style.display = "";
 
     return await response.json();
