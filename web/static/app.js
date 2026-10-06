@@ -29,6 +29,28 @@ let changingStations = new Set();
 let workersScreenLoaded = false;
 let lunchScreenLoaded = false;
 let lunchSettings = [];
+let workerDaysOff = [];
+
+async function loadWorkerDaysOff() {
+    const weekStart = formatDate(getWeekStart());
+    const weekEndDate = new Date(getWeekStart());
+    weekEndDate.setDate(weekEndDate.getDate() + 6);
+    const weekEnd = formatDate(weekEndDate);
+
+    const response = await fetch(
+        `/api/worker-days-off?start_date=${weekStart}&end_date=${weekEnd}`
+    );
+
+    if (!response.ok) {
+        alert("Не вдалося завантажити вихідні працівників");
+        workerDaysOff = [];
+        return;
+    }
+
+    const data = await response.json();
+    workerDaysOff = data.days_off;
+}
+
 
 async function loadScheduleAssignments() {
     const weekStart = formatDate(getWeekStart());
@@ -173,6 +195,45 @@ function openStationChoiceModal(worker, workDate) {
     title.textContent = `Станція для ${worker.name}`;
     list.innerHTML = "";
 
+    const dayOffButton = document.createElement("button");
+    dayOffButton.className = "station-choice-option";
+    dayOffButton.textContent = "Встановити вихідний";
+
+    dayOffButton.onclick = async () => {
+        const response = await fetch("/api/worker-days-off", {
+            method: "PUT",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                worker_id: worker.id,
+                work_date: workDate,
+                is_day_off: true
+            })
+        });
+
+        if (!response.ok) {
+            alert("Не вдалося встановити вихідний");
+            return;
+        }
+
+        workerDaysOff.push({
+            worker_id: worker.id,
+            work_date: workDate
+        });
+
+        scheduleAssignments = scheduleAssignments.filter(item =>
+            !(Number(item.worker_id) === Number(worker.id) &&
+              item.work_date === workDate)
+        );
+
+        modal.classList.add("hidden");
+        clearButton.style.display = "";
+        renderSchedule();
+    };
+
+    list.appendChild(dayOffButton);
+
     for (let station = 15; station <= 24; station++) {
         const button = document.createElement("button");
         button.className = "station-choice-option";
@@ -289,6 +350,67 @@ function getLunchForWorker(workerId, shift) {
     };
 }
 
+function openDayOffModal(worker, workDate) {
+    const modal = document.getElementById("stationModal");
+    const title = document.getElementById("stationModalTitle");
+    const list = document.getElementById("stationWorkerList");
+    const clearButton = document.getElementById("clearStationButton");
+    const cancelButton = document.getElementById("cancelStationButton");
+
+    title.textContent = `Вихідний — ${worker.name}`;
+    list.innerHTML = "";
+
+    const cancelDayOffButton = document.createElement("button");
+    cancelDayOffButton.className = "station-choice-option";
+    cancelDayOffButton.textContent = "Скасувати вихідний";
+
+    cancelDayOffButton.onclick = async () => {
+        const response = await fetch("/api/worker-days-off", {
+            method: "PUT",
+            headers: {
+                "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+                worker_id: worker.id,
+                work_date: workDate,
+                is_day_off: false
+            })
+        });
+
+        if (!response.ok) {
+            alert("Не вдалося скасувати вихідний");
+            return;
+        }
+
+        workerDaysOff = workerDaysOff.filter(dayOff =>
+            !(Number(dayOff.worker_id) === Number(worker.id) &&
+              String(dayOff.work_date).slice(0, 10) === workDate)
+        );
+
+        modal.classList.add("hidden");
+        clearButton.style.display = "";
+        renderSchedule();
+    };
+
+    list.appendChild(cancelDayOffButton);
+
+    clearButton.style.display = "none";
+
+    cancelButton.onclick = () => {
+        modal.classList.add("hidden");
+        clearButton.style.display = "";
+    };
+
+    modal.onclick = event => {
+        if (event.target === modal) {
+            modal.classList.add("hidden");
+            clearButton.style.display = "";
+        }
+    };
+
+    modal.classList.remove("hidden");
+}
+
 function renderSchedule() {
     const body = document.getElementById("scheduleBody");
     updateScheduleDayHeaders();
@@ -323,7 +445,18 @@ function renderSchedule() {
 
             const cell = document.createElement("td");
 
-            if (assignment) {
+            const isDayOff = workerDaysOff.some(dayOff =>
+                Number(dayOff.worker_id) === Number(worker.id) &&
+                String(dayOff.work_date).slice(0, 10) === workDate
+            );
+
+            if (isDayOff) {
+                cell.textContent = "Вихідний";
+                cell.className = "day-off";
+                cell.onclick = () => {
+                    openDayOffModal(worker, workDate);
+                };
+            } else if (assignment) {
                 const station = document.createElement("div");
                 const stationKey = `${workDate}_${assignment.station}`;
                 station.className = changingStations.has(stationKey)
@@ -499,6 +632,7 @@ async function showScheduleScreen() {
         await loadScheduleDays();
         await loadScheduleShift();
         await loadScheduleAssignments();
+        await loadWorkerDaysOff();
         await loadLunchSettings();
 
         scheduleLoaded = true;
@@ -517,6 +651,7 @@ function bindScheduleButtons() {
         await loadScheduleDays();
     await loadScheduleShift();
     await loadScheduleAssignments();
+        await loadWorkerDaysOff();
         await loadLunchSettings();
         renderSchedule();
     };
@@ -527,6 +662,7 @@ function bindScheduleButtons() {
         await loadScheduleDays();
     await loadScheduleShift();
     await loadScheduleAssignments();
+        await loadWorkerDaysOff();
         await loadLunchSettings();
         renderSchedule();
     };

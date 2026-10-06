@@ -37,6 +37,9 @@ from bot.database import (
     set_schedule_assignment,
     delete_schedule_assignment,
     delete_schedule_assignments_for_week,
+    get_worker_days_off,
+    set_worker_day_off,
+    delete_worker_day_off,
     get_lunch_settings,
     set_lunch_setting,
 
@@ -390,6 +393,65 @@ async def schedule_days_get(week_start: str):
         "days": days
     }
 
+
+
+@app.get("/api/worker-days-off")
+async def worker_days_off_get(start_date: str, end_date: str):
+    try:
+        from datetime import date
+        start_date = date.fromisoformat(start_date)
+        end_date = date.fromisoformat(end_date)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="Некоректні дати")
+
+    if start_date > end_date:
+        raise HTTPException(status_code=400, detail="Некоректний діапазон дат")
+
+    days_off = await get_worker_days_off(start_date, end_date)
+
+    return {
+        "days_off": days_off
+    }
+
+
+@app.put("/api/worker-days-off")
+async def worker_days_off_update(data: dict):
+    try:
+        from datetime import date
+        worker_id = int(data.get("worker_id"))
+        work_date = date.fromisoformat(data.get("work_date"))
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="Некоректні дані")
+
+    is_day_off = bool(data.get("is_day_off", True))
+
+    if is_day_off:
+        result = await set_worker_day_off(worker_id, work_date)
+    else:
+        result = await delete_worker_day_off(worker_id, work_date)
+
+    return {
+        "day_off": result
+    }
+
+
+@app.delete("/api/worker-days-off")
+async def worker_days_off_delete(worker_id: int, work_date: str):
+    try:
+        from datetime import date
+        work_date = date.fromisoformat(work_date)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="Некоректна дата")
+
+    result = await delete_worker_day_off(worker_id, work_date)
+
+    if result is None:
+        raise HTTPException(status_code=404, detail="Вихідний не знайдено")
+
+    return {
+        "deleted": True,
+        "day_off": result
+    }
 
 
 @app.put("/api/schedule/days")

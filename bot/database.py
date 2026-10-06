@@ -66,6 +66,14 @@ async def init_db():
             )
         """)
         await conn.execute("""
+            CREATE TABLE IF NOT EXISTS worker_days_off (
+                id SERIAL PRIMARY KEY,
+                worker_id INTEGER NOT NULL REFERENCES workers(id) ON DELETE CASCADE,
+                work_date DATE NOT NULL,
+                UNIQUE (worker_id, work_date)
+            )
+        """)
+        await conn.execute("""
             CREATE TABLE IF NOT EXISTS lunch_settings (
                 id SERIAL PRIMARY KEY,
                 week_id INTEGER NOT NULL REFERENCES schedule_weeks(id) ON DELETE CASCADE,
@@ -162,6 +170,49 @@ async def get_or_create_schedule_week(week_start):
         return dict(row)
 
 
+async def set_worker_day_off(worker_id, work_date):
+    async with _pool.acquire() as conn:
+        row = await conn.fetchrow("""
+            INSERT INTO worker_days_off (worker_id, work_date)
+            VALUES ($1, $2)
+            ON CONFLICT (worker_id, work_date)
+            DO UPDATE SET work_date = EXCLUDED.work_date
+            RETURNING id, worker_id, work_date
+        """, worker_id, work_date)
+
+        await conn.execute("""
+            DELETE FROM schedule_assignments
+            WHERE worker_id = $1
+              AND work_date = $2
+        """, worker_id, work_date)
+
+        return dict(row) if row else None
+
+
+async def delete_worker_day_off(worker_id, work_date):
+    async with _pool.acquire() as conn:
+        row = await conn.fetchrow("""
+            DELETE FROM worker_days_off
+            WHERE worker_id = $1
+              AND work_date = $2
+            RETURNING id, worker_id, work_date
+        """, worker_id, work_date)
+
+        return dict(row) if row else None
+
+
+async def get_worker_days_off(start_date, end_date):
+    async with _pool.acquire() as conn:
+        rows = await conn.fetch("""
+            SELECT worker_id, work_date
+            FROM worker_days_off
+            WHERE work_date BETWEEN $1 AND $2
+            ORDER BY work_date, worker_id
+        """, start_date, end_date)
+
+        return [dict(row) for row in rows]
+
+
 async def create_schedule_days(week_id, week_start):
     async with _pool.acquire() as conn:
         rows = []
@@ -233,7 +284,6 @@ async def generate_schedule_assignments(week_id, week_start, shift):
             WHERE active = TRUE
               AND is_reserve = FALSE
             ORDER BY id
-            LIMIT 10
         """)
 
         worker_ids = [row["id"] for row in rows]
@@ -241,17 +291,38 @@ async def generate_schedule_assignments(week_id, week_start, shift):
         if not worker_ids:
             return False
 
+        days_off_rows = await conn.fetch("""
+            SELECT worker_id, work_date
+            FROM worker_days_off
+            WHERE work_date BETWEEN $1 AND $2
+        """, week_start, week_start + timedelta(days=4))
+
+        days_off = {
+            (row["worker_id"], row["work_date"])
+            for row in days_off_rows
+        }
+
         stations = list(range(15, 25))
         used_by_worker = {worker_id: set() for worker_id in worker_ids}
 
         for day_offset in range(5):
             work_date = week_start + timedelta(days=day_offset)
 
+            eligible_workers = [
+                worker_id
+                for worker_id in worker_ids
+                if (worker_id, work_date) not in days_off
+            ]
+
+            if not eligible_workers:
+                continue
+
             assignment = None
 
             for _ in range(1000):
-                available_workers = worker_ids[:]
+                available_workers = eligible_workers[:]
                 random.shuffle(available_workers)
+                available_workers = available_workers[:10]
 
                 available_stations = stations[:]
                 random.shuffle(available_stations)
