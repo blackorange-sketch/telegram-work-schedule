@@ -180,8 +180,8 @@ function updateWeek() {
 
 
 const navButtons = document.querySelectorAll(".bottom-nav button");
-navButtons[1].addEventListener("click", () => {
-    showWorkersScreen();
+navButtons[1].addEventListener("click", async () => {
+    await showWorkersScreen();
     setActiveNav(1);
 });
 

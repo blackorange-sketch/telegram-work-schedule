@@ -1,4 +1,4 @@
-function showWorkersScreen() {
+async function showWorkersScreen() {
     const main = document.querySelector("main");
 
     main.innerHTML = `
@@ -8,9 +8,12 @@ function showWorkersScreen() {
         <div id="workerModal" class="worker-modal hidden"><div class="worker-modal-box"><div class="worker-modal-title">Новий працівник</div><input id="workerNameInput" type="text" placeholder="Імʼя працівника"><div class="worker-modal-buttons"><button id="cancelWorkerButton">Скасувати</button><button id="saveWorkerButton">Додати</button></div></div></div></section>
     `;
     if (!workersScreenLoaded) {
-        loadWorkers();
+        await loadWorkers();
         workersScreenLoaded = true;
+    } else {
+        renderWorkers(workers);
     }
+
     setupWorkerButtons();
 }
 
@@ -19,7 +22,7 @@ async function loadWorkers() {
 
     try {
         const response = await fetch("/api/workers?t=" + Date.now());
-        const workers = await response.json();
+        workers = await response.json();
 
         renderWorkers(workers);
     } catch (error) {
