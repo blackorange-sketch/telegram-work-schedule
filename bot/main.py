@@ -36,6 +36,8 @@ from bot.database import (
     generate_schedule_assignments,
     set_schedule_assignment,
     delete_schedule_assignment,
+    get_lunch_settings,
+    set_lunch_setting,
 
 
 )
@@ -196,6 +198,58 @@ async def schedule_settings_update(data: dict):
         raise HTTPException(status_code=400, detail="Некоректна дата тижня")
 
     return await set_schedule_settings(start_week, start_shift)
+
+@app.put("/api/lunch/settings")
+async def lunch_settings_update(data: dict):
+    try:
+        from datetime import date, time
+
+        week_start = date.fromisoformat(data.get("week_start"))
+        shift = int(data.get("shift"))
+        pair_number = int(data.get("pair_number"))
+
+        worker1_id = data.get("worker1_id")
+        worker2_id = data.get("worker2_id")
+
+        if worker1_id is not None:
+            worker1_id = int(worker1_id)
+
+        if worker2_id is not None:
+            worker2_id = int(worker2_id)
+
+        start_time = time.fromisoformat(data.get("start_time"))
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="Некоректні дані обіду")
+
+    if shift not in (1, 2, 3):
+        raise HTTPException(status_code=400, detail="Некоректна зміна")
+
+    if pair_number not in range(1, 6):
+        raise HTTPException(status_code=400, detail="Некоректний номер пари")
+
+    week = await get_or_create_schedule_week(week_start)
+
+    return await set_lunch_setting(
+        week["id"],
+        shift,
+        pair_number,
+        worker1_id,
+        worker2_id,
+        start_time,
+    )
+
+
+@app.get("/api/lunch/settings")
+async def lunch_settings_get(week_start: str):
+    try:
+        from datetime import date
+        week_start = date.fromisoformat(week_start)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="Некоректна дата тижня")
+
+    week = await get_or_create_schedule_week(week_start)
+    return await get_lunch_settings(week["id"])
+
 
 @app.get("/api/schedule/assignments")
 async def schedule_assignments_get(week_start: str):

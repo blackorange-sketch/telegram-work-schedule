@@ -65,6 +65,18 @@ async def init_db():
                 UNIQUE (week_id, work_date)
             )
         """)
+        await conn.execute("""
+            CREATE TABLE IF NOT EXISTS lunch_settings (
+                id SERIAL PRIMARY KEY,
+                week_id INTEGER NOT NULL REFERENCES schedule_weeks(id) ON DELETE CASCADE,
+                shift INTEGER NOT NULL CHECK (shift BETWEEN 1 AND 3),
+                pair_number INTEGER NOT NULL CHECK (pair_number BETWEEN 1 AND 5),
+                worker1_id INTEGER REFERENCES workers(id),
+                worker2_id INTEGER REFERENCES workers(id),
+                start_time TIME NOT NULL,
+                UNIQUE (week_id, shift, pair_number)
+            )
+        """)
 
 
 
@@ -443,5 +455,63 @@ async def delete_schedule_assignment(
               AND station = $3
             RETURNING id, week_id, work_date, worker_id, station, shift
         """, week_id, work_date, station)
+
+        return dict(row) if row else None
+
+async def get_lunch_settings(week_id: int):
+    async with _pool.acquire() as conn:
+        rows = await conn.fetch("""
+            SELECT
+                ls.id,
+                ls.week_id,
+                ls.shift,
+                ls.pair_number,
+                ls.worker1_id,
+                w1.name AS worker1_name,
+                ls.worker2_id,
+                w2.name AS worker2_name,
+                ls.start_time
+            FROM lunch_settings ls
+            LEFT JOIN workers w1 ON w1.id = ls.worker1_id
+            LEFT JOIN workers w2 ON w2.id = ls.worker2_id
+            WHERE ls.week_id = $1
+            ORDER BY ls.shift, ls.pair_number
+        """, week_id)
+
+        return [dict(row) for row in rows]
+
+async def set_lunch_setting(
+    week_id: int,
+    shift: int,
+    pair_number: int,
+    worker1_id: int | None,
+    worker2_id: int | None,
+    start_time,
+):
+    async with _pool.acquire() as conn:
+        row = await conn.fetchrow("""
+            INSERT INTO lunch_settings (
+                week_id,
+                shift,
+                pair_number,
+                worker1_id,
+                worker2_id,
+                start_time
+            )
+            VALUES ($1, $2, $3, $4, $5, $6)
+            ON CONFLICT (week_id, shift, pair_number)
+            DO UPDATE SET
+                worker1_id = EXCLUDED.worker1_id,
+                worker2_id = EXCLUDED.worker2_id,
+                start_time = EXCLUDED.start_time
+            RETURNING
+                id,
+                week_id,
+                shift,
+                pair_number,
+                worker1_id,
+                worker2_id,
+                start_time
+        """, week_id, shift, pair_number, worker1_id, worker2_id, start_time)
 
         return dict(row) if row else None

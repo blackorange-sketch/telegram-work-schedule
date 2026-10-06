@@ -23,6 +23,7 @@ let scheduleLoaded = false;
 let changingStations = new Set();
 let workersScreenLoaded = false;
 let lunchScreenLoaded = false;
+let lunchSettings = [];
 
 async function loadScheduleAssignments() {
     const weekStart = formatDate(getWeekStart());
@@ -534,6 +535,19 @@ function showScreen(screenId) {
 showScreen("scheduleScreen");
 showScheduleScreen();
 
+async function loadLunchSettings() {
+    const weekStart = formatDate(getWeekStart());
+    const response = await fetch(`/api/lunch/settings?week_start=${weekStart}`);
+
+    if (!response.ok) {
+        alert("Не вдалося завантажити налаштування обідів");
+        return [];
+    }
+
+    lunchSettings = await response.json();
+    return lunchSettings;
+}
+
 async function showLunchScreen() {
     const screen = document.getElementById("lunchScreen");
 
@@ -544,6 +558,8 @@ async function showLunchScreen() {
     if (!workers.length) {
         await loadScheduleWorkers();
     }
+
+    await loadLunchSettings();
 
     const pairs = Array.from({ length: 5 }, (_, index) => `
         <div class="lunch-pair">
@@ -605,6 +621,99 @@ async function showLunchScreen() {
             </div>
         </div>
     `;
+
+    const shiftSettings = {
+        1: lunchSettings.find(item => item.shift === 1),
+        2: lunchSettings.find(item => item.shift === 2),
+        3: lunchSettings.find(item => item.shift === 3)
+    };
+
+    document.querySelectorAll(".lunch-time-button").forEach(button => {
+        const shift = button.closest(".lunch-shift")?.querySelector("strong")?.textContent;
+        const match = shift?.match(/Зміна (\\d)/);
+
+        if (!match) {
+            return;
+        }
+
+        const setting = shiftSettings[Number(match[1])];
+
+        if (setting?.start_time) {
+            const time = String(setting.start_time).slice(0, 5);
+            button.textContent = time;
+            button.dataset.time = time;
+        }
+    });
+
+    for (let index = 0; index < 5; index++) {
+        const setting = lunchSettings.find(
+            item => item.shift === 1 && item.pair_number === index + 1
+        );
+
+        const buttons = document.querySelectorAll(
+            `.lunch-worker-button[data-pair="${index}"]`
+        );
+
+        if (!setting) {
+            continue;
+        }
+
+        if (setting.worker1_id) {
+            buttons[0].textContent = setting.worker1_name || "Обрати працівника";
+            buttons[0].dataset.workerId = setting.worker1_id;
+        }
+
+        if (setting.worker2_id) {
+            buttons[1].textContent = setting.worker2_name || "Обрати працівника";
+            buttons[1].dataset.workerId = setting.worker2_id;
+        }
+    }
+
+    const saveLunchButton = screen.querySelector(".add-worker-button");
+
+    saveLunchButton.onclick = async () => {
+        const timeButtons = screen.querySelectorAll(".lunch-time-button");
+        const times = Array.from(timeButtons).map(button => button.dataset.time);
+
+        for (let shift = 1; shift <= 3; shift++) {
+            for (let index = 0; index < 5; index++) {
+                const buttons = screen.querySelectorAll(
+                    `.lunch-worker-button[data-pair="${index}"]`
+                );
+
+                const worker1Id = buttons[0].dataset.workerId
+                    ? Number(buttons[0].dataset.workerId)
+                    : null;
+
+                const worker2Id = buttons[1].dataset.workerId
+                    ? Number(buttons[1].dataset.workerId)
+                    : null;
+
+                const response = await fetch("/api/lunch/settings", {
+                    method: "PUT",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        week_start: formatDate(getWeekStart()),
+                        shift,
+                        pair_number: index + 1,
+                        worker1_id: worker1Id,
+                        worker2_id: worker2Id,
+                        start_time: times[shift - 1]
+                    })
+                });
+
+                if (!response.ok) {
+                    alert("Не вдалося зберегти налаштування обідів");
+                    return;
+                }
+            }
+        }
+
+        await loadLunchSettings();
+        alert("Налаштування обідів збережено");
+    };
 
     lunchScreenLoaded = true;
 }
