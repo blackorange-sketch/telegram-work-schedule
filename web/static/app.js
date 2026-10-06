@@ -769,8 +769,9 @@ async function exportScheduleImage(mode) {
         const file = new File([blob], fileName, { type: "image/png" });
 
         if (mode === "share") {
+        alert("share=" + !!navigator.share + " canShare=" + !!navigator.canShare);
         if (!navigator.share || !navigator.canShare || !navigator.canShare({ files: [file] })) {
-            alert("Системне поширення зображень не підтримується цією версією Telegram");
+            alert("Файлове поширення не підтримується");
             return;
         }
 
