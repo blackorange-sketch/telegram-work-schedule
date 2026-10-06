@@ -68,6 +68,59 @@ function renderSchedule() {
                 station.className = "station";
                 station.textContent = assignment.station;
 
+                station.onclick = () => {
+                    const options = workers
+                        .filter(worker => !worker.is_reserve)
+                        .map((worker, index) => `${index + 1} — ${worker.name}`)
+                        .join("\\n");
+
+                    const choice = prompt(
+                        `Зміна станції ${assignment.station} на ${workDate}\\n\\n` +
+                        `0 — Звільнити станцію\\n` +
+                        options
+                    );
+
+                    if (choice === null) {
+                        return;
+                    }
+
+                    const number = Number(choice);
+
+                    if (number === 0) {
+                        const index = scheduleAssignments.indexOf(assignment);
+
+                        if (index !== -1) {
+                            scheduleAssignments.splice(index, 1);
+                        }
+
+                        renderSchedule();
+                        return;
+                    }
+
+                    const selectedWorker = workers
+                        .filter(worker => !worker.is_reserve)[number - 1];
+
+                    if (!selectedWorker) {
+                        alert("Некоректний вибір працівника");
+                        return;
+                    }
+
+                    const selectedAssignment = scheduleAssignments.find(item =>
+                        item.work_date === workDate &&
+                        item.worker_id === selectedWorker.id
+                    );
+
+                    if (selectedAssignment && selectedAssignment !== assignment) {
+                        selectedAssignment.worker_id = assignment.worker_id;
+                        selectedAssignment.worker_name = assignment.worker_name;
+                    }
+
+                    assignment.worker_id = selectedWorker.id;
+                    assignment.worker_name = selectedWorker.name;
+
+                    renderSchedule();
+                };
+
                 cell.appendChild(station);
             }
 
