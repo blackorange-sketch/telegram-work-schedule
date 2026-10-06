@@ -428,13 +428,14 @@ function updateScheduleDayHeaders() {
 const weekTitle = document.getElementById("weekTitle");
 
 function updateWeek() {
-    if (weekOffset === 0) {
-        weekTitle.textContent = "Поточний тиждень";
-    } else if (weekOffset < 0) {
-        weekTitle.textContent = "Попередній тиждень";
-    } else {
-        weekTitle.textContent = "Наступний тиждень";
-    }
+    const weekStart = getWeekStart();
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekEnd.getDate() + 6);
+
+    const formatShortDate = date =>
+        `${String(date.getDate()).padStart(2, "0")}.${String(date.getMonth() + 1).padStart(2, "0")}`;
+
+    weekTitle.textContent = `${formatShortDate(weekStart)} — ${formatShortDate(weekEnd)}`;
 }
 
 
