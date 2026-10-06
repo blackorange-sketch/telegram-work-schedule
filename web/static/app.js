@@ -1,4 +1,24 @@
 console.log("APP.JS START", Date.now());
+
+window.addEventListener("error", (event) => {
+    const box = document.getElementById("jsError");
+    const text = document.getElementById("jsErrorText");
+
+    if (box && text) {
+        box.style.display = "";
+        text.textContent = event.error?.stack || event.message || "Невідома JavaScript помилка";
+    }
+});
+
+window.addEventListener("unhandledrejection", (event) => {
+    const box = document.getElementById("jsError");
+    const text = document.getElementById("jsErrorText");
+
+    if (box && text) {
+        box.style.display = "";
+        text.textContent = event.reason?.stack || String(event.reason);
+    }
+});
 const tg = window.Telegram?.WebApp;
 
 const originalFetch = window.fetch.bind(window);
