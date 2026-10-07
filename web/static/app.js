@@ -76,6 +76,18 @@ window.addEventListener("pagehide", () => {
     appLogEvent("PAGE HIDE");
 });
 
+window.addEventListener("freeze", () => {
+    appLogEvent("PAGE FREEZE");
+});
+
+window.addEventListener("resume", () => {
+    appLogEvent("PAGE RESUME");
+});
+
+appLogEvent("PAGE STATE", {
+    wasDiscarded: document.wasDiscarded === true
+});
+
 const originalConsoleError = console.error.bind(console);
 const originalConsoleWarn = console.warn.bind(console);
 
