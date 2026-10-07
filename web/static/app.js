@@ -1280,14 +1280,23 @@ async function exportScheduleImage(mode) {
     }, "image/jpeg", 0.95);
 }
 
+let sharePreparationInProgress = false;
+
 function prepareShareInBackground() {
     if (document.visibilityState === "hidden") {
         appLogEvent("SHARE PREPARE SKIPPED: APP HIDDEN");
         return;
     }
 
-    preparedShareMessageId = null;
-    exportScheduleImage("prepare-share");
+    if (sharePreparationInProgress) {
+        appLogEvent("SHARE PREPARE SKIPPED: ALREADY IN PROGRESS");
+        return;
+    }
+
+    sharePreparationInProgress = true;
+    exportScheduleImage("prepare-share").finally(() => {
+        sharePreparationInProgress = false;
+    });
 }
 
 function bindScheduleButtons() {
