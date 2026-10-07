@@ -1266,9 +1266,12 @@ async function exportScheduleImage(mode) {
                 preparedShareMessageId = data.prepared_message_id || null;
                 preparedShareWeek = formatDate(getWeekStart());
                 console.log("SHARE PREPARED:", preparedShareMessageId, "WEEK:", preparedShareWeek);
+                updateShareButtonState();
             } catch (error) {
                 preparedShareMessageId = null;
+                preparedShareWeek = null;
                 console.log("SHARE PREPARE ERROR:", error);
+                updateShareButtonState();
             }
             return;
         }
@@ -1390,35 +1393,58 @@ function bindScheduleButtons() {
         await exportScheduleImage("save");
     };
 
-    document.getElementById("shareScheduleImageButton").onclick = async () => {
+    const shareScheduleImageButton =
+        document.getElementById("shareScheduleImageButton");
+
+    function updateShareButtonState() {
+        const ready =
+            !!preparedShareMessageId &&
+            preparedShareWeek === formatDate(getWeekStart()) &&
+            !shareMessageInProgress;
+
+        shareScheduleImageButton.disabled = !ready;
+        shareScheduleImageButton.style.opacity = ready ? "1" : "0.45";
+        shareScheduleImageButton.style.pointerEvents = ready ? "auto" : "none";
+
+        appLogEvent("SHARE BUTTON STATE", {
+            ready,
+            hasMessageId: !!preparedShareMessageId,
+            week: preparedShareWeek,
+            currentWeek: formatDate(getWeekStart()),
+            inProgress: shareMessageInProgress
+        });
+    }
+
+    shareScheduleImageButton.onclick = async () => {
         appLogEvent("SHARE BUTTON CLICK");
         exportModal.classList.add("hidden");
-
-        const tg = window.Telegram?.WebApp;
 
         if (!window.Telegram?.WebView?.postEvent) {
             alert("Поширення через Telegram не підтримується");
             return;
         }
 
+        if (
+            !preparedShareMessageId ||
+            preparedShareWeek !== formatDate(getWeekStart())
+        ) {
+            appLogEvent("SHARE SKIPPED: NOT READY");
+            updateShareButtonState();
+            return;
+        }
+
         if (shareMessageInProgress) {
-            appLogEvent("SHARE SKIPPED: PREPARING");
+            appLogEvent("SHARE SKIPPED: ALREADY SHARING");
             return;
         }
 
         shareMessageInProgress = true;
+        updateShareButtonState();
 
-        const messageId = await waitForPreparedShareMessage();
-
-        if (!messageId) {
-            shareMessageInProgress = false;
-            alert("Не вдалося підготувати файл для поширення");
-            return;
-        }
+        const messageId = preparedShareMessageId;
 
         console.log("SHARE MESSAGE ID:", messageId);
         appLogEvent("SHARE MESSAGE ID: " + messageId);
-
         appLogEvent("SHARE DIRECT POSTEVENT");
 
         try {
@@ -1432,8 +1458,11 @@ function bindScheduleButtons() {
             preparedShareWeek = null;
         } finally {
             shareMessageInProgress = false;
+            updateShareButtonState();
         }
     };
+
+    updateShareButtonState();
 
     document.getElementById("cancelExportButton").onclick = () => {
         exportModal.classList.add("hidden");
@@ -1448,6 +1477,7 @@ function bindScheduleButtons() {
     document.getElementById("prevWeek").onclick = async () => {
         preparedShareMessageId = null;
         preparedShareWeek = null;
+        updateShareButtonState();
         weekOffset--;
         updateWeek();
         await loadScheduleDays();
@@ -1463,6 +1493,7 @@ function bindScheduleButtons() {
     document.getElementById("nextWeek").onclick = async () => {
         preparedShareMessageId = null;
         preparedShareWeek = null;
+        updateShareButtonState();
         weekOffset++;
         updateWeek();
         await loadScheduleDays();
@@ -1522,6 +1553,10 @@ function bindScheduleButtons() {
                 return;
             }
         }
+
+        preparedShareMessageId = null;
+        preparedShareWeek = null;
+        updateShareButtonState();
 
         const response = await fetch("/api/schedule/generate", {
             method: "POST",
