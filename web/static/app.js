@@ -469,7 +469,7 @@ function openStationModal(assignment, workDate) {
     modal.classList.remove("hidden");
 }
 
-function openStationChoiceModal(worker, workDate) {
+function openStationChoiceModal(worker, workDate, currentAssignment = null) {
     const modal = document.getElementById("stationModal");
     const title = document.getElementById("stationModalTitle");
     const list = document.getElementById("stationWorkerList");
@@ -478,6 +478,7 @@ function openStationChoiceModal(worker, workDate) {
 
     title.textContent = `Станція для ${worker.name}`;
     list.innerHTML = "";
+    clearButton.style.display = currentAssignment ? "" : "none";
 
     const dayOffButton = document.createElement("button");
     dayOffButton.className = "station-choice-option";
@@ -554,6 +555,18 @@ function openStationChoiceModal(worker, workDate) {
         button.className = "station-choice-option";
         button.textContent = station;
 
+        const selectedAssignment = scheduleAssignments.find(item =>
+            item.work_date === workDate &&
+            item.station === station
+        );
+
+        if (selectedAssignment) {
+            button.style.opacity = "0.45";
+            button.title = `Зайнята: ${selectedAssignment.worker_name}`;
+        } else {
+            button.title = "Вільна";
+        }
+
         button.onclick = async () => {
             const selectedAssignment = scheduleAssignments.find(item =>
                 item.work_date === workDate &&
@@ -625,7 +638,43 @@ function openStationChoiceModal(worker, workDate) {
         list.appendChild(button);
     }
 
-    clearButton.style.display = "none";
+    clearButton.style.display = currentAssignment ? "" : "none";
+
+    if (currentAssignment) {
+        clearButton.onclick = async () => {
+            const weekStart = formatDate(getWeekStart());
+
+            const response = await fetch("/api/schedule/assignment", {
+                method: "DELETE",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify({
+                    week_start: weekStart,
+                    work_date: workDate,
+                    station: currentAssignment.station
+                })
+            });
+
+            if (!response.ok) {
+                alert("Не вдалося звільнити станцію");
+                return;
+            }
+
+            scheduleAssignments = scheduleAssignments.filter(item =>
+                item !== currentAssignment
+            );
+
+            changingStations.add(
+                `${workDate}_${currentAssignment.station}`
+            );
+
+            modal.classList.add("hidden");
+            clearButton.style.display = "";
+            renderSchedule();
+            prepareShareInBackground();
+        };
+    }
 
     cancelButton.onclick = () => {
         modal.classList.add("hidden");
@@ -806,7 +855,7 @@ function renderSchedule() {
                 station.textContent = assignment.station;
 
                 station.onclick = () => {
-                    openStationModal(assignment, workDate);
+                    openStationChoiceModal(worker, workDate, assignment);
                 };
 
                 cell.appendChild(station);
