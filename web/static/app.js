@@ -1192,8 +1192,15 @@ async function exportScheduleImage(mode) {
         y += rowHeight;
     });
 
+    const toBlobStart = performance.now();
+    appLogEvent("SHARE CANVAS TOBLOB START");
+
     return new Promise(resolve => {
         canvas.toBlob(async blob => {
+            appLogEvent("SHARE CANVAS TOBLOB END", {
+                durationMs: Math.round(performance.now() - toBlobStart),
+                size: blob ? blob.size : 0
+            });
             try {
         if (!blob) {
             alert("Не вдалося створити зображення");
