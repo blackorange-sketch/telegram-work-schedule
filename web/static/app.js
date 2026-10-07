@@ -272,6 +272,7 @@ async function checkAdminAccess() {
     return await response.json();
 }
 let preparedShareMessageId = null;
+let preparedShareWeek = null;
 let shareMessageInProgress = false;
 if (tg?.onEvent) {
     tg.onEvent("shareMessageSent", () => {
@@ -1240,7 +1241,8 @@ async function exportScheduleImage(mode) {
                 if (!response.ok) return;
                 const data = await response.json();
                 preparedShareMessageId = data.prepared_message_id || null;
-                console.log("SHARE PREPARED:", preparedShareMessageId);
+                preparedShareWeek = formatDate(getWeekStart());
+                console.log("SHARE PREPARED:", preparedShareMessageId, "WEEK:", preparedShareWeek);
             } catch (error) {
                 preparedShareMessageId = null;
                 console.log("SHARE PREPARE ERROR:", error);
@@ -1323,9 +1325,13 @@ function prepareShareInBackground() {
 }
 
 async function waitForPreparedShareMessage() {
-    if (preparedShareMessageId) {
+    const currentWeek = formatDate(getWeekStart());
+    if (preparedShareMessageId && preparedShareWeek === currentWeek) {
         return preparedShareMessageId;
     }
+
+    preparedShareMessageId = null;
+    preparedShareWeek = null;
 
     prepareShareInBackground();
 
@@ -1400,6 +1406,8 @@ function bindScheduleButtons() {
     };
 
     document.getElementById("prevWeek").onclick = async () => {
+        preparedShareMessageId = null;
+        preparedShareWeek = null;
         weekOffset--;
         updateWeek();
         await loadScheduleDays();
@@ -1413,6 +1421,8 @@ function bindScheduleButtons() {
     };
 
     document.getElementById("nextWeek").onclick = async () => {
+        preparedShareMessageId = null;
+        preparedShareWeek = null;
         weekOffset++;
         updateWeek();
         await loadScheduleDays();
