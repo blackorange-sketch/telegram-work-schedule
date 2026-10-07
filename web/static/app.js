@@ -242,7 +242,7 @@ async function checkAdminAccess() {
     return await response.json();
 }
 let preparedShareMessageId = null;
-tg.onEvent("shareMessageSent", () => console.log("SHARE SENT")); tg.onEvent("shareMessageFailed", (error) => console.log("SHARE FAILED:", error));
+// Telegram share event listeners disabled for lifecycle test
 
 const adminAccessPromise = checkAdminAccess()
     .then(() => {
