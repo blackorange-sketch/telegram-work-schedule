@@ -262,7 +262,11 @@ async function checkAdminAccess() {
 }
 let preparedShareMessageId = null;
 if (tg?.onEvent) {
-    tg.onEvent("shareMessageSent", () => console.log("SHARE SENT"));
+    tg.onEvent("shareMessageSent", () => {
+        console.log("SHARE SENT");
+        preparedShareMessageId = null;
+        prepareShareInBackground();
+    });
     tg.onEvent("shareMessageFailed", (error) => console.log("SHARE FAILED:", error));
 }
 
