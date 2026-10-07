@@ -29,6 +29,19 @@ appLogEvent("APP.JS START", {
 });
 
 window.addEventListener("error", (event) => {
+    appLogEvent("WINDOW ERROR CAPTURE", {
+        message: event.message,
+        filename: event.filename,
+        lineno: event.lineno,
+        colno: event.colno,
+        target: event.target?.tagName || "",
+        targetSrc: event.target?.src || "",
+        targetHref: event.target?.href || "",
+        error: event.error?.stack || String(event.error || "")
+    });
+}, true);
+
+window.addEventListener("error", (event) => {
     appLogEvent("WINDOW ERROR", {
         message: event.message,
         filename: event.filename,
