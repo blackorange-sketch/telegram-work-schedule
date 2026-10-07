@@ -1,4 +1,4 @@
-console.log("APP.JS START", Date.now());
+console.log("APP.JS START", Date.now(), "visibility=", document.visibilityState);
 
 window.addEventListener("error", (event) => {
     const box = document.getElementById("jsError");
