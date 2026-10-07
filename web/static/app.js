@@ -25,7 +25,7 @@ function appLogEvent(message, data = null) {
 appLogEvent("APP.JS START", {
     visibility: document.visibilityState,
     readyState: document.readyState,
-    url: location.href
+    url: location.origin + location.pathname
 });
 
 window.addEventListener("error", (event) => {
@@ -76,18 +76,83 @@ window.addEventListener("pagehide", () => {
     appLogEvent("PAGE HIDE");
 });
 
+const originalConsoleError = console.error.bind(console);
+const originalConsoleWarn = console.warn.bind(console);
+
+console.error = (...args) => {
+    appLogEvent("CONSOLE ERROR", args.map(String).join(" "));
+    originalConsoleError(...args);
+};
+
+console.warn = (...args) => {
+    appLogEvent("CONSOLE WARN", args.map(String).join(" "));
+    originalConsoleWarn(...args);
+};
+
+const telegramLifecycleEvents = [
+    "activated",
+    "deactivated",
+    "viewportChanged",
+    "fullscreenChanged",
+    "fullscreenFailed",
+    "backButtonClicked"
+];
+
+if (tg?.onEvent) {
+    for (const eventName of telegramLifecycleEvents) {
+        try {
+            tg.onEvent(eventName, (...args) => {
+                appLogEvent(`TELEGRAM EVENT: ${eventName}`, args.length ? args : null);
+            });
+        } catch (error) {
+            appLogEvent(`TELEGRAM EVENT REGISTER ERROR: ${eventName}`, error?.stack || String(error));
+        }
+    }
+}
+
 const copyJsLogButton = document.getElementById("copyJsLogButton");
 
 if (copyJsLogButton) {
     copyJsLogButton.addEventListener("click", async () => {
-        const log = appLog.join("\n");
+        appLogEvent("COPY DIAGNOSTIC LOG");
+
+        const resources = performance
+            .getEntriesByType("resource")
+            .slice(-100)
+            .map(resource => `${resource.name} | ${Math.round(resource.duration)}ms`);
+
+        const scripts = Array.from(document.scripts)
+            .map(script => script.src || "[inline script]");
+
+        const log = [
+            "=== TELEGRAM MINI APP DIAGNOSTIC LOG ===",
+            `Generated: ${new Date().toISOString()}`,
+            `Visibility: ${document.visibilityState}`,
+            `Telegram: ${!!window.Telegram}`,
+            `WebApp: ${!!tg}`,
+            `Platform: ${tg?.platform || "unknown"}`,
+            `Version: ${tg?.version || "unknown"}`,
+            `InitData length: ${tg?.initData?.length || 0}`,
+            "",
+            "=== APP EVENTS ===",
+            ...appLog,
+            "",
+            "=== LOADED SCRIPTS ===",
+            ...scripts,
+            "",
+            "=== RESOURCE TIMING ===",
+            ...resources
+        ].join("\n");
 
         try {
             await navigator.clipboard.writeText(log);
-            copyJsLogButton.textContent = "Лог скопійовано";
+            copyJsLogButton.textContent = "✓ Лог скопійовано";
+            setTimeout(() => {
+                copyJsLogButton.textContent = "Скопіювати діагностичний лог";
+            }, 1800);
         } catch (error) {
             appLogEvent("COPY LOG ERROR", error?.stack || String(error));
-            prompt("Скопіюйте лог:", log);
+            prompt("Скопіюйте діагностичний лог:", log);
         }
     });
 }

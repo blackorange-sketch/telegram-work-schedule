@@ -25,11 +25,17 @@
 
 <body>
 
-<div id="jsError" style="display:none;padding:24px;font-family:sans-serif;color:#b00020;white-space:pre-wrap">
-    <h2>Помилка запуску</h2>
-    <div id="jsErrorText"></div>
-    <button id="copyJsLogButton" type="button" style="margin-top:16px;padding:10px 16px">
-        Скопіювати лог
+<div id="jsError" style="display:none;padding:16px;font-family:sans-serif;color:#fff;background:#24181b;border-bottom:1px solid #5c2b31">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+        <div style="width:10px;height:10px;border-radius:50%;background:#ff5f6d;box-shadow:0 0 10px #ff5f6d"></div>
+        <strong style="font-size:17px">Помилка Mini App</strong>
+    </div>
+    <div style="font-size:13px;color:#ffb8bd;margin-bottom:12px">
+        Під час роботи сталася JavaScript-помилка.
+    </div>
+    <div id="jsErrorText" style="padding:11px;border-radius:10px;background:#171113;color:#f4dfe1;font:12px/1.5 monospace;white-space:pre-wrap;overflow-wrap:anywhere"></div>
+    <button id="copyJsLogButton" type="button" style="margin-top:12px;width:100%;min-height:44px;border:0;border-radius:10px;background:#229af0;color:#fff;font-size:14px;font-weight:600">
+        Скопіювати діагностичний лог
     </button>
 </div>
 
