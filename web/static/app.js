@@ -1338,6 +1338,8 @@ function bindScheduleButtons() {
         await loadWorkerDaysOff();
         await loadLunchSettings();
         renderSchedule();
+        await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+        prepareShareInBackground();
     };
 
     document.getElementById("nextWeek").onclick = async () => {
@@ -1349,6 +1351,8 @@ function bindScheduleButtons() {
         await loadWorkerDaysOff();
         await loadLunchSettings();
         renderSchedule();
+        await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+        prepareShareInBackground();
     };
     document.getElementById("generateScheduleButton").onclick = async () => {
         const weekStart = formatDate(getWeekStart());
