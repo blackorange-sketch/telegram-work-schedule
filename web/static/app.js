@@ -247,7 +247,7 @@ tg.onEvent("shareMessageSent", () => console.log("SHARE SENT")); tg.onEvent("sha
 const adminAccessPromise = checkAdminAccess()
     .then(() => {
         appLogEvent("ADMIN AUTH SUCCESS");
-        tg.ready();
+        appLogEvent("TELEGRAM READY SKIPPED TEST");
         appLogEvent("TELEGRAM READY");
         return true;
     })
