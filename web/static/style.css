@@ -828,8 +828,8 @@ main {
 
 .station-worker-list:has(.station-choice-option) {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 6px;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 8px;
 }
 
 .station-choice-option {
