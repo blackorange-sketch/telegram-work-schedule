@@ -877,28 +877,10 @@ const navButtons = document.querySelectorAll(".bottom-nav button");
 navButtons[1].addEventListener("click", async () => {
     showScreen("workersScreen");
 
-    if (!window.showWorkersScreen) {
-        appLogEvent("WORKERS SCRIPT LOAD START");
-
-        await new Promise((resolve, reject) => {
-            const script = document.createElement("script");
-            script.src = "/static/workers.js?v=2";
-
-            script.onload = () => {
-                appLogEvent("WORKERS SCRIPT LOAD SUCCESS");
-                resolve();
-            };
-
-            script.onerror = () => {
-                appLogEvent("WORKERS SCRIPT LOAD ERROR");
-                reject(new Error("Не вдалося завантажити workers.js"));
-            };
-
-            document.body.appendChild(script);
-        });
-    }
-
-    await showWorkersScreen();
+    if (false) {
+            appLogEvent("WORKERS SCRIPT LOAD DISABLED FOR TEST");
+        }
+        await showWorkersScreen();
     setActiveNav(1);
 });
 navButtons[2].addEventListener("click", async () => {
