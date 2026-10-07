@@ -304,13 +304,17 @@ async def generate_schedule_assignments(week_id, week_start, shift):
             return False
 
         rows = await conn.fetch("""
-            SELECT id
+            SELECT id, is_reserve
             FROM workers
             WHERE active = TRUE
             ORDER BY id
         """)
 
         worker_ids = [row["id"] for row in rows]
+        fixed_reserve_workers = {
+            row["id"] for row in rows
+            if row["is_reserve"]
+        }
 
         if not worker_ids:
             return False
@@ -352,41 +356,32 @@ async def generate_schedule_assignments(week_id, week_start, shift):
             if not eligible_workers:
                 continue
 
-            if len(eligible_workers) <= 10:
-                station_workers = eligible_workers[:]
-                random.shuffle(station_workers)
-                reserve_workers = []
-            else:
-                reserve_candidates = [
-                    worker_id
-                    for worker_id in eligible_workers
-                    if reserve_count[worker_id] == 0
-                ]
+            reserve_slots = max(0, len(eligible_workers) - 10)
 
-                preferred_reserve = [
-                    worker_id
-                    for worker_id in reserve_candidates
-                    if worker_id not in previous_reserve_workers
-                ]
+            fixed_reserve = [
+                worker_id
+                for worker_id in eligible_workers
+                if worker_id in fixed_reserve_workers
+                and reserve_count[worker_id] == 0
+            ]
 
-                fallback_reserve = [
-                    worker_id
-                    for worker_id in reserve_candidates
-                    if worker_id in previous_reserve_workers
-                ]
+            random_reserve = [
+                worker_id
+                for worker_id in eligible_workers
+                if worker_id not in fixed_reserve_workers
+                and reserve_count[worker_id] == 0
+            ]
 
-                random.shuffle(preferred_reserve)
-                random.shuffle(fallback_reserve)
+            random.shuffle(fixed_reserve)
+            random.shuffle(random_reserve)
 
-                reserve_workers = (
-                    preferred_reserve + fallback_reserve
-                )[:len(eligible_workers) - 10]
+            reserve_workers = (fixed_reserve + random_reserve)[:reserve_slots]
 
-                station_workers = [
-                    worker_id
-                    for worker_id in eligible_workers
-                    if worker_id not in reserve_workers
-                ]
+            station_workers = [
+                worker_id
+                for worker_id in eligible_workers
+                if worker_id not in reserve_workers
+            ]
 
             assignment = None
 
