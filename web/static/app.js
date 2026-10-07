@@ -1298,10 +1298,27 @@ function bindScheduleButtons() {
         await exportScheduleImage("save");
     };
 
-    document.getElementById("shareScheduleImageButton").onclick = async () => {
-        appLogEvent("SHARE BUTTON CLICKED");
+    document.getElementById("shareScheduleImageButton").onclick = () => {
         exportModal.classList.add("hidden");
-        await exportScheduleImage("share");
+
+        const tg = window.Telegram?.WebApp;
+
+        if (!tg?.shareMessage) {
+            alert("Поширення через Telegram не підтримується");
+            return;
+        }
+
+        if (!preparedShareMessageId) {
+            alert("Файл ще готується, спробуйте ще раз через секунду");
+            return;
+        }
+
+        tg.shareMessage(
+            preparedShareMessageId,
+            (sent) => {
+                console.log("SHARE CALLBACK:", sent);
+            }
+        );
     };
 
     document.getElementById("cancelExportButton").onclick = () => {
