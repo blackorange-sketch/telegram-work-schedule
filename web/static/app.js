@@ -950,6 +950,21 @@ function updateScheduleDayHeaders() {
 
 
 const weekTitle = document.getElementById("weekTitle");
+const todayDate = document.getElementById("todayDate");
+
+function updateTodayDate() {
+    const today = new Date();
+    const day = String(today.getDate()).padStart(2, "0");
+    const month = String(today.getMonth() + 1).padStart(2, "0");
+    const year = today.getFullYear();
+
+    if (todayDate) {
+        todayDate.textContent = `${day}.${month}.${year}`;
+    }
+}
+
+updateTodayDate();
+
 
 function updateWeek() {
     const weekStart = getWeekStart();
