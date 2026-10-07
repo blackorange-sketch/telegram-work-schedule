@@ -1411,19 +1411,12 @@ function bindScheduleButtons() {
         console.log("SHARE MESSAGE ID:", messageId);
         appLogEvent("SHARE MESSAGE ID: " + messageId);
 
-        tg.shareMessage(
-            messageId,
-            (sent) => {
-                console.log("SHARE CALLBACK:", sent);
-                appLogEvent("SHARE CALLBACK: " + sent);
+        appLogEvent("SHARE DIRECT POSTEVENT");
 
-                shareMessageInProgress = false;
-
-                if (sent) {
-                    preparedShareMessageId = null;
-                    preparedShareWeek = null;
-                }
-            }
+        Telegram.WebView.postEvent(
+            "web_app_send_prepared_message",
+            false,
+            { id: messageId }
         );
     };
 
