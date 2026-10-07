@@ -271,12 +271,11 @@ if (tg.expand) {
 
 if (tg.requestFullscreen) {
     try {
-        tg.requestFullscreen();
+        // Fullscreen disabled for lifecycle test
     } catch {
         tg.expand();
     }
 }
-
 let workers = [];
 let scheduleDays = [];
 let scheduleShift = null;
