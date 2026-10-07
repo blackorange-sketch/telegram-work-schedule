@@ -547,8 +547,8 @@ async def set_schedule_assignment(
                     await conn.execute("""
                         UPDATE schedule_assignments
                         SET worker_id = CASE
-                            WHEN id = $1 THEN $3
-                            WHEN id = $2 THEN $4
+                            WHEN id = $1 THEN $3::integer
+                            WHEN id = $2 THEN $4::integer
                         END
                         WHERE id IN ($1, $2)
                     """,
