@@ -1177,6 +1177,7 @@ async function exportScheduleImage(mode) {
 
     return new Promise(resolve => {
         canvas.toBlob(async blob => {
+            try {
         if (!blob) {
             alert("Не вдалося створити зображення");
             return;
@@ -1295,6 +1296,9 @@ async function exportScheduleImage(mode) {
         link.href = url;
         link.download = fileName;
             URL.revokeObjectURL(url);
+            } finally {
+                resolve();
+            }
         }, "image/jpeg", 0.95);
     });
 }
