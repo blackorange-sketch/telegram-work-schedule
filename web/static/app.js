@@ -227,7 +227,7 @@ async function checkAdminAccess() {
         throw new Error("Admin access denied");
     }
 
-    denied.style.display = "";
+    denied.style.display = "none";
     document.querySelector(".app").style.display = "block";
 
     return await response.json();
