@@ -1420,6 +1420,9 @@ function bindScheduleButtons() {
                 false,
                 { id: messageId }
             );
+
+            preparedShareMessageId = null;
+            preparedShareWeek = null;
         } finally {
             shareMessageInProgress = false;
         }
