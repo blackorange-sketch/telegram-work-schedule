@@ -1298,25 +1298,9 @@ function bindScheduleButtons() {
         await exportScheduleImage("save");
     };
 
-    document.getElementById("shareScheduleImageButton").onclick = () => {
+    document.getElementById("shareScheduleImageButton").onclick = async () => {
         exportModal.classList.add("hidden");
-
-        const tg = window.Telegram?.WebApp;
-
-        if (!tg?.shareMessage) {
-            alert("Поширення через Telegram не підтримується");
-            return;
-        }
-
-        if (!preparedShareMessageId) {
-            alert("Файл ще готується, спробуйте ще раз через секунду");
-            return;
-        }
-
-        tg.shareMessage(
-            preparedShareMessageId,
-            (sent) => console.log("SHARE CALLBACK:", sent)
-        );
+        await exportScheduleImage("share");
     };
 
     document.getElementById("cancelExportButton").onclick = () => {
