@@ -98,6 +98,17 @@ document.addEventListener("visibilitychange", () => {
     appLogEvent("VISIBILITY CHANGE", {
         visibility: document.visibilityState
     });
+
+    if (
+        document.visibilityState === "visible" &&
+        shareMessageInProgress
+    ) {
+        appLogEvent("SHARE RECOVERED AFTER VISIBILITY RETURN");
+
+        shareMessageInProgress = false;
+        preparedShareMessageId = null;
+        preparedShareWeek = null;
+    }
 });
 
 window.addEventListener("pageshow", () => {
