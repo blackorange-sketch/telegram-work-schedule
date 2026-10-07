@@ -1095,3 +1095,18 @@ main {
 #weekTitle { font-weight: 700; }
 
 #weekTitle { font-size: 18px; font-weight: 700; }
+
+/* =========================
+   LANDSCAPE PHONE
+   ========================= */
+@media (orientation: landscape) and (max-height: 500px) {
+    .schedule th,
+    .schedule td {
+        height: 38px;
+        padding: 4px 6px;
+    }
+
+    .schedule th {
+        height: 34px;
+    }
+}
