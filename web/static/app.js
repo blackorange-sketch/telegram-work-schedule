@@ -1377,15 +1377,15 @@ function bindScheduleButtons() {
             return;
         }
 
+        if (shareMessageInProgress) {
+            appLogEvent("SHARE SKIPPED: ALREADY OPENED");
+            return;
+        }
+
         const messageId = await waitForPreparedShareMessage();
 
         if (!messageId) {
             alert("Не вдалося підготувати файл для поширення");
-            return;
-        }
-
-        if (shareMessageInProgress) {
-            appLogEvent("SHARE SKIPPED: ALREADY OPENED");
             return;
         }
 
