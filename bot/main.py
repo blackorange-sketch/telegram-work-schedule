@@ -351,8 +351,10 @@ async def schedule_assignments_get(week_start: str):
         raise HTTPException(status_code=400, detail="Некоректна дата тижня")
 
     week = await get_or_create_schedule_week(week_start)
-    assignments = await get_schedule_assignments(week["id"])
-    reserves = await get_schedule_reserves(week["id"])
+    assignments, reserves = await asyncio.gather(
+        get_schedule_assignments(week["id"]),
+        get_schedule_reserves(week["id"]),
+    )
 
     return {
         "week": week,
