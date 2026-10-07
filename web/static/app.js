@@ -272,15 +272,18 @@ async function checkAdminAccess() {
     return await response.json();
 }
 let preparedShareMessageId = null;
+let shareMessageInProgress = false;
 if (tg?.onEvent) {
     tg.onEvent("shareMessageSent", () => {
         console.log("SHARE SENT");
         preparedShareMessageId = null;
+        shareMessageInProgress = false;
     });
     tg.onEvent("shareMessageFailed", (error) => {
         console.log("SHARE FAILED:", error);
         appLogEvent("SHARE FAILED: " + JSON.stringify(error));
         preparedShareMessageId = null;
+        shareMessageInProgress = false;
     });
 }
 
@@ -1361,6 +1364,13 @@ function bindScheduleButtons() {
             alert("Не вдалося підготувати файл для поширення");
             return;
         }
+
+        if (shareMessageInProgress) {
+            appLogEvent("SHARE SKIPPED: ALREADY OPENED");
+            return;
+        }
+
+        shareMessageInProgress = true;
 
         console.log("SHARE MESSAGE ID:", messageId);
         appLogEvent("SHARE MESSAGE ID: " + messageId);
