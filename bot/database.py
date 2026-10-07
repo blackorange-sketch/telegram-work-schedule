@@ -515,6 +515,8 @@ async def set_schedule_assignment(
     station: int,
     shift: int,
 ):
+    worker_id = int(worker_id)
+
     async with _pool.acquire() as conn:
         async with conn.transaction():
             await conn.execute("""
