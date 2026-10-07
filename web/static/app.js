@@ -165,7 +165,8 @@ async function saveScheduleAssignment(assignment, workDate) {
     });
 
     if (!response.ok) {
-        alert("Не вдалося зберегти зміну");
+        const errorText = await response.text();
+        alert(`Не вдалося зберегти зміну (${response.status})\n${errorText}`);
         return false;
     }
 
