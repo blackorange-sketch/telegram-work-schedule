@@ -140,10 +140,7 @@ const tg = window.Telegram?.WebApp;
 
 const telegramLifecycleEvents = [
     "activated",
-    "deactivated",
-    "fullscreenChanged",
-    "fullscreenFailed",
-    "backButtonClicked"
+    "deactivated"
 ];
 
 if (tg?.onEvent) {
