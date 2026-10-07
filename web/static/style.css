@@ -1110,3 +1110,20 @@ main {
         height: 34px;
     }
 }
+
+.clear-schedule-button {
+    width: 100%;
+    margin-top: 10px;
+    background: #dc2626;
+    color: #ffffff;
+    border: 0;
+    border-radius: 10px;
+    padding: 12px 16px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.clear-schedule-button:active {
+    background: #b91c1c;
+}

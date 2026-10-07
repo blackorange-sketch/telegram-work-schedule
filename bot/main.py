@@ -469,6 +469,34 @@ async def schedule_reserve_delete(
     return {"ok": True}
 
 
+@app.delete("/api/schedule")
+async def schedule_clear(data: dict):
+    try:
+        from datetime import date
+        week_start = date.fromisoformat(data.get("week_start"))
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="Некоректна дата тижня")
+
+    week = await get_or_create_schedule_week(week_start)
+    await delete_schedule_assignments_for_week(week["id"])
+
+    return {"ok": True}
+
+
+@app.delete("/api/schedule/clear")
+async def schedule_clear(data: dict):
+    try:
+        from datetime import date
+        week_start = date.fromisoformat(data.get("week_start"))
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="Некоректна дата тижня")
+
+    week = await get_or_create_schedule_week(week_start)
+    await delete_schedule_assignments_for_week(week["id"])
+
+    return {"ok": True}
+
+
 @app.post("/api/schedule/generate")
 async def schedule_generate(data: dict):
     try:

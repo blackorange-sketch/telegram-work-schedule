@@ -1881,3 +1881,38 @@ document.addEventListener("click", event => {
         openLunchTimeModal(timeButton);
     }
 });
+
+document.getElementById("clearScheduleButton").onclick = async () => {
+    const confirmed = confirm(
+        "⚠️ УВАГА!\n\nВесь графік для вибраного тижня буде очищено, включно з Reserve.\n\nЦю дію не можна скасувати.\n\nОчистити графік?"
+    );
+
+    if (!confirmed) return;
+
+    const weekStart = formatDate(getWeekStart());
+
+    const response = await fetch("/api/schedule/clear", {
+        method: "DELETE",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            week_start: weekStart
+        })
+    });
+
+    if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        alert(data.detail || "Не вдалося очистити графік");
+        return;
+    }
+
+    await loadScheduleShift();
+    await loadScheduleAssignments();
+    renderSchedule();
+    await new Promise(resolve =>
+        requestAnimationFrame(() =>
+            requestAnimationFrame(resolve)
+        )
+    );
+};
