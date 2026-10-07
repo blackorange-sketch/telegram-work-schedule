@@ -1388,7 +1388,7 @@ function bindScheduleButtons() {
 
         const tg = window.Telegram?.WebApp;
 
-        if (!tg?.WebView?.postEvent) {
+        if (!window.Telegram?.WebView?.postEvent) {
             alert("Поширення через Telegram не підтримується");
             return;
         }
