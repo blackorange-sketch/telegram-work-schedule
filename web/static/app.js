@@ -1086,6 +1086,11 @@ async function exportScheduleImage(mode) {
             const tg = window.Telegram?.WebApp;
             if (!tg?.shareMessage) return;
             try {
+                if (document.visibilityState === "hidden") {
+                    appLogEvent("SHARE PREPARE FETCH BLOCKED: APP HIDDEN");
+                    return;
+                }
+
                 const response = await fetch("/api/export/share-prepared", {
                     method: "POST",
                     headers: {
