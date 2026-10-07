@@ -101,11 +101,13 @@ document.addEventListener("visibilitychange", () => {
 
     if (
         document.visibilityState === "visible" &&
-        shareMessageInProgress
+        shareMessageInProgress &&
+        directShareActive
     ) {
         appLogEvent("SHARE RECOVERED AFTER VISIBILITY RETURN");
 
         shareMessageInProgress = false;
+        directShareActive = false;
         preparedShareMessageId = null;
         preparedShareWeek = null;
     }
@@ -287,6 +289,7 @@ async function checkAdminAccess() {
 let preparedShareMessageId = null;
 let preparedShareWeek = null;
 let shareMessageInProgress = false;
+let directShareActive = false;
 if (tg?.onEvent) {
     tg.onEvent("shareMessageSent", () => {
         console.log("SHARE SENT");
@@ -1410,6 +1413,8 @@ function bindScheduleButtons() {
 
         console.log("SHARE MESSAGE ID:", messageId);
         appLogEvent("SHARE MESSAGE ID: " + messageId);
+
+        directShareActive = true;
 
         appLogEvent("SHARE DIRECT POSTEVENT");
 
