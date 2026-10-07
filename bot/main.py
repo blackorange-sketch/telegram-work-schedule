@@ -22,7 +22,7 @@ from aiogram.types import (
 from dotenv import load_dotenv
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 import uvicorn
@@ -64,6 +64,10 @@ TOKEN = os.getenv("BOT_TOKEN")
 WEB_APP_URL = os.getenv("WEB_APP_URL")
 ADMIN_IDS = {int(x.strip()) for x in os.getenv("ADMIN_IDS", "").split(",") if x.strip().isdigit()}
 
+# Telegram не оновлює initData, поки Mini App відкритий (навіть у фоні),
+# тому 1 години замало: після довгого згортання всі запити повертали б 403.
+INIT_DATA_MAX_AGE_SECONDS = 24 * 60 * 60
+
 def validate_telegram_init_data(init_data):
     if not TOKEN or not init_data:
         return None
@@ -97,7 +101,7 @@ def validate_telegram_init_data(init_data):
 
     try:
         auth_date = int(data.get("auth_date", "0"))
-        if not auth_date or time.time() - auth_date > 3600:
+        if not auth_date or time.time() - auth_date > INIT_DATA_MAX_AGE_SECONDS:
             return None
 
         user = json.loads(data["user"])
@@ -120,7 +124,15 @@ app = FastAPI()
 @app.middleware("http")
 async def admin_api_middleware(request: Request, call_next):
     if request.url.path.startswith("/api/") and request.url.path != "/api/auth/me":
-        require_admin(request)
+        try:
+            require_admin(request)
+        except HTTPException as error:
+            # HTTPException, піднятий у middleware, не обробляється FastAPI
+            # і перетворюється на 500, тому повертаємо відповідь явно.
+            return JSONResponse(
+                status_code=error.status_code,
+                content={"detail": error.detail},
+            )
 
     return await call_next(request)
 

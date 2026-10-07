@@ -261,7 +261,10 @@ async function checkAdminAccess() {
     return await response.json();
 }
 let preparedShareMessageId = null;
-// Telegram share event listeners disabled for lifecycle test
+if (tg?.onEvent) {
+    tg.onEvent("shareMessageSent", () => console.log("SHARE SENT"));
+    tg.onEvent("shareMessageFailed", (error) => console.log("SHARE FAILED:", error));
+}
 
 const adminAccessPromise = checkAdminAccess()
     .then(() => {
@@ -276,7 +279,26 @@ const adminAccessPromise = checkAdminAccess()
         return false;
     });
 
-// Telegram UI methods disabled for lifecycle test
+if (tg?.setHeaderColor) {
+    tg.setHeaderColor("#f8f8fa");
+}
+
+if (tg?.setBackgroundColor) {
+    tg.setBackgroundColor("#f8f8fa");
+}
+
+if (tg?.expand) {
+    tg.expand();
+}
+
+if (tg?.requestFullscreen) {
+    try {
+        tg.requestFullscreen();
+    } catch {
+        tg.expand();
+    }
+}
+
 let workers = [];
 let scheduleDays = [];
 let scheduleShift = null;
@@ -896,10 +918,28 @@ const navButtons = document.querySelectorAll(".bottom-nav button");
 navButtons[1].addEventListener("click", async () => {
     showScreen("workersScreen");
 
-    if (false) {
-            appLogEvent("WORKERS SCRIPT LOAD DISABLED FOR TEST");
-        }
-        await showWorkersScreen();
+    if (!window.showWorkersScreen) {
+        appLogEvent("WORKERS SCRIPT LOAD START");
+
+        await new Promise((resolve, reject) => {
+            const script = document.createElement("script");
+            script.src = "/static/workers.js?v=2";
+
+            script.onload = () => {
+                appLogEvent("WORKERS SCRIPT LOAD SUCCESS");
+                resolve();
+            };
+
+            script.onerror = () => {
+                appLogEvent("WORKERS SCRIPT LOAD ERROR");
+                reject(new Error("Не вдалося завантажити workers.js"));
+            };
+
+            document.body.appendChild(script);
+        });
+    }
+
+    await showWorkersScreen();
     setActiveNav(1);
 });
 navButtons[2].addEventListener("click", async () => {
