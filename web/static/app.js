@@ -309,6 +309,7 @@ let changingStations = new Set();
 let workersScreenLoaded = false;
 let lunchScreenLoaded = false;
 let lunchSettings = [];
+let lunchSettingsPromise = null;
 let workerDaysOff = [];
 
 async function loadWorkerDaysOff() {
@@ -964,33 +965,40 @@ function updateWeek() {
 
 
 const navButtons = document.querySelectorAll(".bottom-nav button");
+
+let workersScriptPromise = null;
+
+function preloadWorkersScript() {
+    if (window.showWorkersScreen) return Promise.resolve();
+    if (workersScriptPromise) return workersScriptPromise;
+
+    appLogEvent("WORKERS SCRIPT PRELOAD START");
+    workersScriptPromise = new Promise((resolve, reject) => {
+        const script = document.createElement("script");
+        script.src = "/static/workers.js?v=2";
+        script.onload = () => {
+            appLogEvent("WORKERS SCRIPT PRELOAD SUCCESS");
+            resolve();
+        };
+        script.onerror = () => {
+            appLogEvent("WORKERS SCRIPT PRELOAD ERROR");
+            workersScriptPromise = null;
+            reject(new Error("Не вдалося завантажити workers.js"));
+        };
+        document.body.appendChild(script);
+    });
+
+    return workersScriptPromise;
+}
 navButtons[1].addEventListener("click", async () => {
     showScreen("workersScreen");
-
     if (!window.showWorkersScreen) {
-        appLogEvent("WORKERS SCRIPT LOAD START");
-
-        await new Promise((resolve, reject) => {
-            const script = document.createElement("script");
-            script.src = "/static/workers.js?v=2";
-
-            script.onload = () => {
-                appLogEvent("WORKERS SCRIPT LOAD SUCCESS");
-                resolve();
-            };
-
-            script.onerror = () => {
-                appLogEvent("WORKERS SCRIPT LOAD ERROR");
-                reject(new Error("Не вдалося завантажити workers.js"));
-            };
-
-            document.body.appendChild(script);
-        });
+        await preloadWorkersScript();
     }
-
     await showWorkersScreen();
     setActiveNav(1);
 });
+
 navButtons[2].addEventListener("click", async () => {
     showScreen("lunchScreen");
     await showLunchScreen();
@@ -1427,20 +1435,34 @@ showScreen("scheduleScreen");
 adminAccessPromise.then(authorized => {
     if (authorized) {
         showScheduleScreen();
+        preloadWorkersScript().catch(() => {});
+        loadLunchSettings().catch(() => {});
     }
 });
 
 async function loadLunchSettings() {
     const weekStart = formatDate(getWeekStart());
-    const response = await fetch(`/api/lunch/settings?week_start=${weekStart}`);
 
-    if (!response.ok) {
-        alert("Не вдалося завантажити налаштування обідів");
-        return [];
+    if (lunchSettingsPromise) {
+        return lunchSettingsPromise;
     }
 
-    lunchSettings = await response.json();
-    return lunchSettings;
+    lunchSettingsPromise = fetch(`/api/lunch/settings?week_start=${weekStart}`)
+        .then(async response => {
+            if (!response.ok) {
+                throw new Error("Не вдалося завантажити налаштування обідів");
+            }
+
+            lunchSettings = await response.json();
+            return lunchSettings;
+        })
+        .catch(error => {
+            lunchSettingsPromise = null;
+            alert(error.message);
+            return [];
+        });
+
+    return lunchSettingsPromise;
 }
 
 async function showLunchScreen() {
