@@ -266,7 +266,10 @@ if (tg?.onEvent) {
         console.log("SHARE SENT");
         preparedShareMessageId = null;
     });
-    tg.onEvent("shareMessageFailed", (error) => console.log("SHARE FAILED:", error));
+    tg.onEvent("shareMessageFailed", (error) => {
+        console.log("SHARE FAILED:", error);
+        appLogEvent("SHARE FAILED: " + JSON.stringify(error));
+    });
 }
 
 const adminAccessPromise = checkAdminAccess()
