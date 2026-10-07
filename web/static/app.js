@@ -1384,6 +1384,7 @@ function bindScheduleButtons() {
     };
 
     document.getElementById("shareScheduleImageButton").onclick = async () => {
+        appLogEvent("SHARE BUTTON CLICK");
         exportModal.classList.add("hidden");
 
         const tg = window.Telegram?.WebApp;
