@@ -417,7 +417,7 @@ function openStationModal(assignment, workDate) {
             }
 
             modal.classList.add("hidden");
-            renderSchedule();
+            renderSchedule(); await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
             prepareShareInBackground();
         };
 
