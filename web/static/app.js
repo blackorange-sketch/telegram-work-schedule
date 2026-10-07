@@ -1350,6 +1350,9 @@ function bindScheduleButtons() {
             return;
         }
 
+        console.log("SHARE MESSAGE ID:", messageId);
+        appLogEvent("SHARE MESSAGE ID: " + messageId);
+
         tg.shareMessage(
             messageId,
             (sent) => {
