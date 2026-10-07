@@ -101,13 +101,11 @@ document.addEventListener("visibilitychange", () => {
 
     if (
         document.visibilityState === "visible" &&
-        shareMessageInProgress &&
-        directShareActive
+        shareMessageInProgress
     ) {
         appLogEvent("SHARE RECOVERED AFTER VISIBILITY RETURN");
 
         shareMessageInProgress = false;
-        directShareActive = false;
         preparedShareMessageId = null;
         preparedShareWeek = null;
     }
@@ -289,7 +287,6 @@ async function checkAdminAccess() {
 let preparedShareMessageId = null;
 let preparedShareWeek = null;
 let shareMessageInProgress = false;
-let directShareActive = false;
 if (tg?.onEvent) {
     tg.onEvent("shareMessageSent", () => {
         console.log("SHARE SENT");
@@ -1391,13 +1388,13 @@ function bindScheduleButtons() {
 
         const tg = window.Telegram?.WebApp;
 
-        if (!tg?.shareMessage) {
+        if (!tg?.WebView?.postEvent) {
             alert("Поширення через Telegram не підтримується");
             return;
         }
 
         if (shareMessageInProgress) {
-            appLogEvent("SHARE SKIPPED: ALREADY OPENED");
+            appLogEvent("SHARE SKIPPED: PREPARING");
             return;
         }
 
@@ -1414,15 +1411,17 @@ function bindScheduleButtons() {
         console.log("SHARE MESSAGE ID:", messageId);
         appLogEvent("SHARE MESSAGE ID: " + messageId);
 
-        directShareActive = true;
-
         appLogEvent("SHARE DIRECT POSTEVENT");
 
-        Telegram.WebView.postEvent(
-            "web_app_send_prepared_message",
-            false,
-            { id: messageId }
-        );
+        try {
+            Telegram.WebView.postEvent(
+                "web_app_send_prepared_message",
+                false,
+                { id: messageId }
+            );
+        } finally {
+            shareMessageInProgress = false;
+        }
     };
 
     document.getElementById("cancelExportButton").onclick = () => {
