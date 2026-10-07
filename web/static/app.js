@@ -66,14 +66,7 @@ tg.onEvent("shareMessageSent", () => console.log("SHARE SENT")); tg.onEvent("sha
 const adminAccessPromise = checkAdminAccess()
     .then(() => {
         tg.ready();
-
-        return new Promise((resolve, reject) => {
-            const script = document.createElement("script");
-            script.src = "/static/workers.js?v=2";
-            script.onload = () => resolve(true);
-            script.onerror = () => reject(new Error("Не вдалося завантажити workers.js"));
-            document.body.appendChild(script);
-        });
+        return true;
     })
     .catch((error) => {
         console.error("ADMIN AUTH:", error);
@@ -718,6 +711,17 @@ function updateWeek() {
 const navButtons = document.querySelectorAll(".bottom-nav button");
 navButtons[1].addEventListener("click", async () => {
     showScreen("workersScreen");
+
+    if (!window.showWorkersScreen) {
+        await new Promise((resolve, reject) => {
+            const script = document.createElement("script");
+            script.src = "/static/workers.js?v=2";
+            script.onload = resolve;
+            script.onerror = () => reject(new Error("Не вдалося завантажити workers.js"));
+            document.body.appendChild(script);
+        });
+    }
+
     await showWorkersScreen();
     setActiveNav(1);
 });
