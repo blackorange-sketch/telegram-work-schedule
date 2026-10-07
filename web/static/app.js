@@ -1299,6 +1299,7 @@ function bindScheduleButtons() {
     };
 
     document.getElementById("shareScheduleImageButton").onclick = async () => {
+        appLogEvent("SHARE BUTTON CLICKED");
         exportModal.classList.add("hidden");
         await exportScheduleImage("share");
     };
