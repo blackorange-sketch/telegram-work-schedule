@@ -133,6 +133,17 @@ console.warn = (...args) => {
     originalConsoleWarn(...args);
 };
 
+const copyJsLogHeaderButton = document.getElementById("copyJsLogHeaderButton");
+
+if (copyJsLogHeaderButton) {
+    copyJsLogHeaderButton.addEventListener("click", () => {
+        const button = document.getElementById("copyJsLogButton");
+        if (button) {
+            button.click();
+        }
+    });
+}
+
 const copyJsLogButton = document.getElementById("copyJsLogButton");
 
 if (copyJsLogButton) {

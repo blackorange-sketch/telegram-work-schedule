@@ -1127,3 +1127,20 @@ main {
 .clear-schedule-button:active {
     background: #b91c1c;
 }
+
+#copyJsLogHeaderButton {
+    margin-left: auto;
+    min-height: 36px;
+    padding: 7px 10px;
+    border: 0;
+    border-radius: 9px;
+    background: var(--accent);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+#copyJsLogHeaderButton:active {
+    opacity: 0.8;
+}
