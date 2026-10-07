@@ -1381,6 +1381,32 @@ async function waitForPreparedShareMessage() {
     return await prepareShareInBackground();
 }
 
+function updateShareButtonState() {
+    const shareScheduleImageButton =
+        document.getElementById("shareScheduleImageButton");
+
+    if (!shareScheduleImageButton) {
+        return;
+    }
+
+    const ready =
+        !!preparedShareMessageId &&
+        preparedShareWeek === formatDate(getWeekStart()) &&
+        !shareMessageInProgress;
+
+    shareScheduleImageButton.disabled = !ready;
+    shareScheduleImageButton.style.opacity = ready ? "1" : "0.45";
+    shareScheduleImageButton.style.pointerEvents = ready ? "auto" : "none";
+
+    appLogEvent("SHARE BUTTON STATE", {
+        ready,
+        hasMessageId: !!preparedShareMessageId,
+        week: preparedShareWeek,
+        currentWeek: formatDate(getWeekStart()),
+        inProgress: shareMessageInProgress
+    });
+}
+
 function bindScheduleButtons() {
     const exportModal = document.getElementById("exportModal");
 
@@ -1395,25 +1421,6 @@ function bindScheduleButtons() {
 
     const shareScheduleImageButton =
         document.getElementById("shareScheduleImageButton");
-
-    function updateShareButtonState() {
-        const ready =
-            !!preparedShareMessageId &&
-            preparedShareWeek === formatDate(getWeekStart()) &&
-            !shareMessageInProgress;
-
-        shareScheduleImageButton.disabled = !ready;
-        shareScheduleImageButton.style.opacity = ready ? "1" : "0.45";
-        shareScheduleImageButton.style.pointerEvents = ready ? "auto" : "none";
-
-        appLogEvent("SHARE BUTTON STATE", {
-            ready,
-            hasMessageId: !!preparedShareMessageId,
-            week: preparedShareWeek,
-            currentWeek: formatDate(getWeekStart()),
-            inProgress: shareMessageInProgress
-        });
-    }
 
     shareScheduleImageButton.onclick = async () => {
         appLogEvent("SHARE BUTTON CLICK");
