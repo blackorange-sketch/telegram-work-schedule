@@ -828,12 +828,18 @@ main {
 
 .station-worker-list:has(.station-choice-option) {
     display: grid;
-    grid-template-columns: repeat(5, 1fr);
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 8px;
+}
+
+.station-worker-list:has(.station-choice-option) .station-choice-option:nth-child(1),
+.station-worker-list:has(.station-choice-option) .station-choice-option:nth-child(2) {
+    grid-column: 1 / -1;
 }
 
 .station-choice-option {
     width: 100%;
+    min-width: 0;
     padding: 8px 10px;
     border: 0;
     border-radius: 9px;
