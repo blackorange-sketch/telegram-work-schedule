@@ -977,6 +977,8 @@ function updateWeek() {
     weekTitle.textContent = `${formatShortDate(weekStart)} — ${formatShortDate(weekEnd)}`;
 }
 
+updateWeek();
+
 
 
 const navButtons = document.querySelectorAll(".bottom-nav button");
