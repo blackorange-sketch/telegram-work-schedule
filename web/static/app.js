@@ -821,13 +821,13 @@ function renderSchedule() {
         );
 
         if (isDayOff) {
-                cell.textContent = "Day off";
+                cell.textContent = "";
                 cell.className = "day-off";
                 cell.onclick = () => {
                     openDayOffModal(worker, workDate);
                 };
             } else if (isReserve) {
-            cell.textContent = "Reserve";
+            cell.textContent = "";
             cell.className = "reserve";
             cell.onclick = async () => {
                 const weekStart = formatDate(getWeekStart());
