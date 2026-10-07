@@ -280,6 +280,7 @@ if (tg?.onEvent) {
     tg.onEvent("shareMessageFailed", (error) => {
         console.log("SHARE FAILED:", error);
         appLogEvent("SHARE FAILED: " + JSON.stringify(error));
+        preparedShareMessageId = null;
     });
 }
 
