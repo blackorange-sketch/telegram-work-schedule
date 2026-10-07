@@ -1424,6 +1424,8 @@ function bindScheduleButtons() {
         await loadScheduleShift();
         await loadScheduleAssignments();
         renderSchedule();
+        await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+        prepareShareInBackground();
     };
 }
 
