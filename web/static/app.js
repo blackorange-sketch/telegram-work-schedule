@@ -89,27 +89,6 @@ console.warn = (...args) => {
     originalConsoleWarn(...args);
 };
 
-const telegramLifecycleEvents = [
-    "activated",
-    "deactivated",
-    "viewportChanged",
-    "fullscreenChanged",
-    "fullscreenFailed",
-    "backButtonClicked"
-];
-
-if (tg?.onEvent) {
-    for (const eventName of telegramLifecycleEvents) {
-        try {
-            tg.onEvent(eventName, (...args) => {
-                appLogEvent(`TELEGRAM EVENT: ${eventName}`, args.length ? args : null);
-            });
-        } catch (error) {
-            appLogEvent(`TELEGRAM EVENT REGISTER ERROR: ${eventName}`, error?.stack || String(error));
-        }
-    }
-}
-
 const copyJsLogButton = document.getElementById("copyJsLogButton");
 
 if (copyJsLogButton) {
@@ -158,6 +137,29 @@ if (copyJsLogButton) {
 }
 
 const tg = window.Telegram?.WebApp;
+
+const telegramLifecycleEvents = [
+    "activated",
+    "deactivated",
+    "viewportChanged",
+    "fullscreenChanged",
+    "fullscreenFailed",
+    "backButtonClicked"
+];
+
+if (tg?.onEvent) {
+    for (const eventName of telegramLifecycleEvents) {
+        try {
+            tg.onEvent(eventName, (...args) => {
+                appLogEvent(`TELEGRAM EVENT: ${eventName}`, args.length ? args : null);
+            });
+        } catch (error) {
+            appLogEvent(`TELEGRAM EVENT REGISTER ERROR: ${eventName}`, error?.stack || String(error));
+        }
+    }
+}
+
+
 
 const originalFetch = window.fetch.bind(window);
 
