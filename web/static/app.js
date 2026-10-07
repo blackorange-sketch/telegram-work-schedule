@@ -1394,7 +1394,6 @@ function updateShareButtonState() {
         preparedShareWeek === formatDate(getWeekStart()) &&
         !shareMessageInProgress;
 
-    shareScheduleImageButton.disabled = !ready;
     shareScheduleImageButton.style.opacity = ready ? "1" : "0.45";
     shareScheduleImageButton.style.pointerEvents = ready ? "auto" : "none";
 
