@@ -544,9 +544,14 @@ async def set_schedule_assignment(
 
             if station_assignment and station_assignment["worker_id"] != worker_id:
                 if current_station:
+                    old_worker_id = station_assignment["worker_id"]
+                    current_shift = current_station["shift"]
+                    current_station_number = current_station["station"]
+                    selected_shift = station_assignment["shift"]
+                    selected_station_number = station_assignment["station"]
+
                     await conn.execute("""
-                        UPDATE schedule_assignments
-                        SET worker_id = 0
+                        DELETE FROM schedule_assignments
                         WHERE id IN ($1, $2)
                     """,
                         station_assignment["id"],
@@ -554,21 +559,37 @@ async def set_schedule_assignment(
                     )
 
                     await conn.execute("""
-                        UPDATE schedule_assignments
-                        SET worker_id = $1
-                        WHERE id = $2
+                        INSERT INTO schedule_assignments (
+                            shift,
+                            week_id,
+                            work_date,
+                            worker_id,
+                            station
+                        )
+                        VALUES ($1, $2, $3, $4, $5)
                     """,
+                        selected_shift,
+                        week_id,
+                        work_date,
                         worker_id,
-                        station_assignment["id"],
+                        selected_station_number,
                     )
 
                     await conn.execute("""
-                        UPDATE schedule_assignments
-                        SET worker_id = $1
-                        WHERE id = $2
+                        INSERT INTO schedule_assignments (
+                            shift,
+                            week_id,
+                            work_date,
+                            worker_id,
+                            station
+                        )
+                        VALUES ($1, $2, $3, $4, $5)
                     """,
-                        station_assignment["worker_id"],
-                        current_station["id"],
+                        current_shift,
+                        week_id,
+                        work_date,
+                        old_worker_id,
+                        current_station_number,
                     )
                 else:
                     await conn.execute("""
