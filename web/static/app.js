@@ -1305,27 +1305,46 @@ async function exportScheduleImage(mode) {
     });
 }
 
-let sharePreparationInProgress = false;
+let sharePreparationPromise = null;
 
 function prepareShareInBackground() {
     if (document.visibilityState === "hidden") {
         appLogEvent("SHARE PREPARE SKIPPED: APP HIDDEN");
-        return;
+        return null;
     }
 
-    if (sharePreparationInProgress) {
-        appLogEvent("SHARE PREPARE SKIPPED: ALREADY IN PROGRESS");
-        return;
+    if (sharePreparationPromise) {
+        return sharePreparationPromise;
     }
 
-    sharePreparationInProgress = true;
-    exportScheduleImage("prepare-share").finally(() => {
-        sharePreparationInProgress = false;
-    });
+    const preparationWeek = formatDate(getWeekStart());
+
+    sharePreparationPromise = exportScheduleImage("prepare-share")
+        .then(() => {
+            if (
+                preparedShareMessageId &&
+                preparedShareWeek === preparationWeek &&
+                formatDate(getWeekStart()) === preparationWeek
+            ) {
+                return preparedShareMessageId;
+            }
+
+            return null;
+        })
+        .catch(error => {
+            console.log("SHARE PREPARE PROMISE ERROR:", error);
+            return null;
+        })
+        .finally(() => {
+            sharePreparationPromise = null;
+        });
+
+    return sharePreparationPromise;
 }
 
 async function waitForPreparedShareMessage() {
     const currentWeek = formatDate(getWeekStart());
+
     if (preparedShareMessageId && preparedShareWeek === currentWeek) {
         return preparedShareMessageId;
     }
@@ -1333,19 +1352,7 @@ async function waitForPreparedShareMessage() {
     preparedShareMessageId = null;
     preparedShareWeek = null;
 
-    prepareShareInBackground();
-
-    const startedAt = Date.now();
-
-    while (Date.now() - startedAt < 10000) {
-        if (preparedShareMessageId) {
-            return preparedShareMessageId;
-        }
-
-        await new Promise(resolve => setTimeout(resolve, 200));
-    }
-
-    return null;
+    return await prepareShareInBackground();
 }
 
 function bindScheduleButtons() {
