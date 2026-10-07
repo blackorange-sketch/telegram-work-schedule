@@ -1099,7 +1099,13 @@ async function exportScheduleImage(mode) {
         cells.forEach((cell, columnIndex) => {
             const width = colWidths[columnIndex] || 100;
 
-            ctx.fillStyle = rowIndex === 0 ? "#e5e7eb" : "#f9fafb";
+            if (rowIndex === 0) {
+                ctx.fillStyle = "#e5e7eb";
+            } else if (cell.classList.contains("day-off")) {
+                ctx.fillStyle = "#dff3e3";
+            } else {
+                ctx.fillStyle = "#f9fafb";
+            }
             ctx.fillRect(x, y, width, rowHeight);
 
             ctx.strokeStyle = "#d1d5db";
