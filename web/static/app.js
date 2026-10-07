@@ -1175,7 +1175,8 @@ async function exportScheduleImage(mode) {
         y += rowHeight;
     });
 
-    canvas.toBlob(async blob => {
+    return new Promise(resolve => {
+        canvas.toBlob(async blob => {
         if (!blob) {
             alert("Не вдалося створити зображення");
             return;
@@ -1294,7 +1295,8 @@ async function exportScheduleImage(mode) {
         link.href = url;
         link.download = fileName;
             URL.revokeObjectURL(url);
-    }, "image/jpeg", 0.95);
+        }, "image/jpeg", 0.95);
+    });
 }
 
 let sharePreparationInProgress = false;
