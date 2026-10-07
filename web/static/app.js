@@ -277,13 +277,16 @@ let shareMessageInProgress = false;
 if (tg?.onEvent) {
     tg.onEvent("shareMessageSent", () => {
         console.log("SHARE SENT");
+        appLogEvent("SHARE SENT");
         preparedShareMessageId = null;
+        preparedShareWeek = null;
         shareMessageInProgress = false;
     });
     tg.onEvent("shareMessageFailed", (error) => {
         console.log("SHARE FAILED:", error);
         appLogEvent("SHARE FAILED: " + JSON.stringify(error));
         preparedShareMessageId = null;
+        preparedShareWeek = null;
         shareMessageInProgress = false;
     });
 }
@@ -1398,6 +1401,14 @@ function bindScheduleButtons() {
             messageId,
             (sent) => {
                 console.log("SHARE CALLBACK:", sent);
+                appLogEvent("SHARE CALLBACK: " + sent);
+
+                shareMessageInProgress = false;
+
+                if (sent) {
+                    preparedShareMessageId = null;
+                    preparedShareWeek = null;
+                }
             }
         );
     };
