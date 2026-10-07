@@ -257,25 +257,7 @@ const adminAccessPromise = checkAdminAccess()
         return false;
     });
 
-if (tg.setHeaderColor) {
-    tg.setHeaderColor("#f8f8fa");
-}
-
-if (tg.setBackgroundColor) {
-    tg.setBackgroundColor("#f8f8fa");
-}
-
-if (tg.expand) {
-    tg.expand();
-}
-
-if (tg.requestFullscreen) {
-    try {
-        // Fullscreen disabled for lifecycle test
-    } catch {
-        tg.expand();
-    }
-}
+// Telegram UI methods disabled for lifecycle test
 let workers = [];
 let scheduleDays = [];
 let scheduleShift = null;
