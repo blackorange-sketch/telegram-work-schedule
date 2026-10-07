@@ -265,7 +265,6 @@ if (tg?.onEvent) {
     tg.onEvent("shareMessageSent", () => {
         console.log("SHARE SENT");
         preparedShareMessageId = null;
-        prepareShareInBackground();
     });
     tg.onEvent("shareMessageFailed", (error) => console.log("SHARE FAILED:", error));
 }
@@ -1299,6 +1298,26 @@ function prepareShareInBackground() {
     });
 }
 
+async function waitForPreparedShareMessage() {
+    if (preparedShareMessageId) {
+        return preparedShareMessageId;
+    }
+
+    prepareShareInBackground();
+
+    const startedAt = Date.now();
+
+    while (Date.now() - startedAt < 10000) {
+        if (preparedShareMessageId) {
+            return preparedShareMessageId;
+        }
+
+        await new Promise(resolve => setTimeout(resolve, 200));
+    }
+
+    return null;
+}
+
 function bindScheduleButtons() {
     const exportModal = document.getElementById("exportModal");
 
@@ -1311,7 +1330,7 @@ function bindScheduleButtons() {
         await exportScheduleImage("save");
     };
 
-    document.getElementById("shareScheduleImageButton").onclick = () => {
+    document.getElementById("shareScheduleImageButton").onclick = async () => {
         exportModal.classList.add("hidden");
 
         const tg = window.Telegram?.WebApp;
@@ -1321,13 +1340,15 @@ function bindScheduleButtons() {
             return;
         }
 
-        if (!preparedShareMessageId) {
-            alert("Файл ще готується, спробуйте ще раз через секунду");
+        const messageId = await waitForPreparedShareMessage();
+
+        if (!messageId) {
+            alert("Не вдалося підготувати файл для поширення");
             return;
         }
 
         tg.shareMessage(
-            preparedShareMessageId,
+            messageId,
             (sent) => {
                 console.log("SHARE CALLBACK:", sent);
             }
