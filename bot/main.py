@@ -123,7 +123,7 @@ app = FastAPI()
 
 @app.middleware("http")
 async def admin_api_middleware(request: Request, call_next):
-    if request.url.path.startswith("/api/") and request.url.path != "/api/auth/me":
+    if request.url.path.startswith("/api/") and request.url.path not in {"/api/auth/me"} and not request.url.path.startswith("/api/export/schedule/"):
         try:
             require_admin(request)
         except HTTPException as error:

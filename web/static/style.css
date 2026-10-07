@@ -254,8 +254,8 @@ main {
 }
 
 
-.day-off {
-    background: rgba(80, 180, 100, 0.14);
+.schedule td.day-off {
+    background: rgba(80, 180, 100, 0.14) !important;
     cursor: pointer;
     user-select: none;
 }
