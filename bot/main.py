@@ -677,8 +677,11 @@ async def download_schedule(file_id: str):
         raise HTTPException(status_code=400, detail="Некоректний файл")
 
     file_path = os.path.join(tempfile.gettempdir(), f"schedule-{file_id}.jpg")
+    exists = os.path.isfile(file_path)
+    size = os.path.getsize(file_path) if exists else 0
+    print(f"EXPORT IMAGE file_id={file_id} exists={exists} size={size}")
 
-    if not os.path.isfile(file_path):
+    if not exists:
         raise HTTPException(status_code=404, detail="Файл не знайдено")
 
     return FileResponse(
