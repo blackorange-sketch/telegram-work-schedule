@@ -546,16 +546,29 @@ async def set_schedule_assignment(
                 if current_station:
                     await conn.execute("""
                         UPDATE schedule_assignments
-                        SET worker_id = CASE
-                            WHEN id = $1 THEN $3::integer
-                            WHEN id = $2 THEN $4::integer
-                        END
+                        SET worker_id = 0
                         WHERE id IN ($1, $2)
                     """,
                         station_assignment["id"],
                         current_station["id"],
+                    )
+
+                    await conn.execute("""
+                        UPDATE schedule_assignments
+                        SET worker_id = $1
+                        WHERE id = $2
+                    """,
                         worker_id,
+                        station_assignment["id"],
+                    )
+
+                    await conn.execute("""
+                        UPDATE schedule_assignments
+                        SET worker_id = $1
+                        WHERE id = $2
+                    """,
                         station_assignment["worker_id"],
+                        current_station["id"],
                     )
                 else:
                     await conn.execute("""
