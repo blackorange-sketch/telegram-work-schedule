@@ -1272,14 +1272,7 @@ async function exportScheduleImage(mode) {
         const link = document.createElement("a");
         link.href = url;
         link.download = fileName;
-    document.getElementById("shareScheduleImageButton").onclick = () => {
-        exportModal.classList.add("hidden");
-        const tg = window.Telegram?.WebApp;
-        if (!tg?.shareMessage) { alert("Поширення через Telegram не підтримується"); return; }
-        if (!preparedShareMessageId) { alert("Файл ще готується, спробуйте ще раз через секунду"); return; }
-        tg.shareMessage(preparedShareMessageId, (sent) => console.log("SHARE CALLBACK:", sent));
-    };
-        URL.revokeObjectURL(url);
+            URL.revokeObjectURL(url);
     }, "image/jpeg", 0.95);
 }
 
