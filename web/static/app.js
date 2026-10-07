@@ -6,7 +6,9 @@ window.addEventListener("error", (event) => {
 
     if (box && text) {
         box.style.display = "";
-        text.textContent = event.error?.stack || event.message || "Невідома JavaScript помилка";
+        text.textContent =
+            event.error?.stack ||
+            `${event.message || "Script error"}\nURL: ${event.filename || "невідомо"}\nРядок: ${event.lineno || "?"}, колонка: ${event.colno || "?"}`;
     }
 });
 
