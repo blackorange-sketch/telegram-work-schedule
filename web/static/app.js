@@ -1385,14 +1385,15 @@ function bindScheduleButtons() {
             return;
         }
 
+        shareMessageInProgress = true;
+
         const messageId = await waitForPreparedShareMessage();
 
         if (!messageId) {
+            shareMessageInProgress = false;
             alert("Не вдалося підготувати файл для поширення");
             return;
         }
-
-        shareMessageInProgress = true;
 
         console.log("SHARE MESSAGE ID:", messageId);
         appLogEvent("SHARE MESSAGE ID: " + messageId);
