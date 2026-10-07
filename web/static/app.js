@@ -1168,6 +1168,11 @@ async function exportScheduleImage(mode) {
 }
 
 function prepareShareInBackground() {
+    if (document.visibilityState === "hidden") {
+        appLogEvent("SHARE PREPARE SKIPPED: APP HIDDEN");
+        return;
+    }
+
     preparedShareMessageId = null;
     exportScheduleImage("prepare-share");
 }
