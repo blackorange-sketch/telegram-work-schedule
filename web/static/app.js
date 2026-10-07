@@ -1,6 +1,42 @@
-console.log("APP.JS START", Date.now(), "visibility=", document.visibilityState);
+const appLog = [];
+const appLogStartedAt = Date.now();
+
+function appLogEvent(message, data = null) {
+    const time = new Date().toISOString();
+    const elapsed = Date.now() - appLogStartedAt;
+    let line = `[${time}] +${elapsed}ms ${message}`;
+
+    if (data !== null) {
+        try {
+            line += ` | ${JSON.stringify(data)}`;
+        } catch {
+            line += ` | ${String(data)}`;
+        }
+    }
+
+    appLog.push(line);
+    console.log(line);
+
+    if (appLog.length > 500) {
+        appLog.shift();
+    }
+}
+
+appLogEvent("APP.JS START", {
+    visibility: document.visibilityState,
+    readyState: document.readyState,
+    url: location.href
+});
 
 window.addEventListener("error", (event) => {
+    appLogEvent("WINDOW ERROR", {
+        message: event.message,
+        filename: event.filename,
+        lineno: event.lineno,
+        colno: event.colno,
+        error: event.error?.stack || String(event.error || "")
+    });
+
     const box = document.getElementById("jsError");
     const text = document.getElementById("jsErrorText");
 
@@ -13,6 +49,10 @@ window.addEventListener("error", (event) => {
 });
 
 window.addEventListener("unhandledrejection", (event) => {
+    appLogEvent("UNHANDLED REJECTION", {
+        reason: event.reason?.stack || String(event.reason)
+    });
+
     const box = document.getElementById("jsError");
     const text = document.getElementById("jsErrorText");
 
@@ -21,27 +61,91 @@ window.addEventListener("unhandledrejection", (event) => {
         text.textContent = event.reason?.stack || String(event.reason);
     }
 });
+
+document.addEventListener("visibilitychange", () => {
+    appLogEvent("VISIBILITY CHANGE", {
+        visibility: document.visibilityState
+    });
+});
+
+window.addEventListener("pageshow", () => {
+    appLogEvent("PAGE SHOW");
+});
+
+window.addEventListener("pagehide", () => {
+    appLogEvent("PAGE HIDE");
+});
+
+const copyJsLogButton = document.getElementById("copyJsLogButton");
+
+if (copyJsLogButton) {
+    copyJsLogButton.addEventListener("click", async () => {
+        const log = appLog.join("\n");
+
+        try {
+            await navigator.clipboard.writeText(log);
+            copyJsLogButton.textContent = "Лог скопійовано";
+        } catch (error) {
+            appLogEvent("COPY LOG ERROR", error?.stack || String(error));
+            prompt("Скопіюйте лог:", log);
+        }
+    });
+}
+
 const tg = window.Telegram?.WebApp;
 
 const originalFetch = window.fetch.bind(window);
 
-window.fetch = (input, init = {}) => {
+window.fetch = async (input, init = {}) => {
     const url = typeof input === "string" ? input : input.url;
+    const method = init.method || "GET";
+
+    appLogEvent("FETCH START", {
+        method,
+        url
+    });
 
     if (url.includes("/api/")) {
         const headers = new Headers(init.headers || {});
 
         if (!headers.has("X-Telegram-Init-Data")) {
-            headers.set("X-Telegram-Init-Data", tg.initData || "");
+            headers.set("X-Telegram-Init-Data", tg?.initData || "");
         }
 
         init.headers = headers;
     }
 
-    return originalFetch(input, init);
+    try {
+        const response = await originalFetch(input, init);
+
+        appLogEvent("FETCH END", {
+            method,
+            url,
+            status: response.status,
+            ok: response.ok
+        });
+
+        return response;
+    } catch (error) {
+        appLogEvent("FETCH ERROR", {
+            method,
+            url,
+            error: error?.stack || String(error)
+        });
+
+        throw error;
+    }
 };
 
 async function checkAdminAccess() {
+    appLogEvent("ADMIN AUTH START", {
+        telegramAvailable: !!window.Telegram,
+        webAppAvailable: !!tg,
+        initDataLength: tg?.initData?.length || 0,
+        platform: tg?.platform || "unknown",
+        version: tg?.version || "unknown"
+    });
+
     const denied = document.getElementById("accessDenied");
 
     const response = await fetch("/api/auth/me", {
@@ -50,12 +154,17 @@ async function checkAdminAccess() {
         }
     });
 
+    appLogEvent("ADMIN AUTH RESPONSE", {
+        status: response.status,
+        ok: response.ok
+    });
+
     if (!response.ok) {
         denied.innerHTML = "<h2>Доступ заборонено</h2><p>Цей Mini App доступний лише адміністраторам.</p>";
         throw new Error("Admin access denied");
     }
 
-    denied.style.display = "none";
+    denied.style.display = "";
     document.querySelector(".app").style.display = "block";
 
     return await response.json();
@@ -65,10 +174,13 @@ tg.onEvent("shareMessageSent", () => console.log("SHARE SENT")); tg.onEvent("sha
 
 const adminAccessPromise = checkAdminAccess()
     .then(() => {
+        appLogEvent("ADMIN AUTH SUCCESS");
         tg.ready();
+        appLogEvent("TELEGRAM READY");
         return true;
     })
     .catch((error) => {
+        appLogEvent("ADMIN AUTH ERROR", error?.stack || String(error));
         console.error("ADMIN AUTH:", error);
         return false;
     });
@@ -713,11 +825,22 @@ navButtons[1].addEventListener("click", async () => {
     showScreen("workersScreen");
 
     if (!window.showWorkersScreen) {
+        appLogEvent("WORKERS SCRIPT LOAD START");
+
         await new Promise((resolve, reject) => {
             const script = document.createElement("script");
             script.src = "/static/workers.js?v=2";
-            script.onload = resolve;
-            script.onerror = () => reject(new Error("Не вдалося завантажити workers.js"));
+
+            script.onload = () => {
+                appLogEvent("WORKERS SCRIPT LOAD SUCCESS");
+                resolve();
+            };
+
+            script.onerror = () => {
+                appLogEvent("WORKERS SCRIPT LOAD ERROR");
+                reject(new Error("Не вдалося завантажити workers.js"));
+            };
+
             document.body.appendChild(script);
         });
     }
