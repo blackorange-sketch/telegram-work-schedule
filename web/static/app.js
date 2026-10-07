@@ -50,6 +50,25 @@ window.addEventListener("error", (event) => {
         error: event.error?.stack || String(event.error || "")
     });
 
+    // Непрозора помилка "Script error." без файлу, рядка та стеку — це помилка зі
+    // сторонього домену (telegram.org/js/telegram-web-app.js), яку браузер
+    // приховує. Вона не походить із коду застосунку і не повинна блокувати UI
+    // червоним екраном (типово виникає при згортанні/розгортанні Mini App).
+    const isOpaqueCrossOriginError =
+        !event.error &&
+        !event.filename &&
+        !event.lineno &&
+        /^script error\.?$/i.test(String(event.message || "").trim());
+
+    if (isOpaqueCrossOriginError) {
+        appLogEvent("OPAQUE CROSS-ORIGIN ERROR IGNORED", {
+            visibility: document.visibilityState,
+            telegramVersion: window.Telegram?.WebApp?.version || "unknown",
+            platform: window.Telegram?.WebApp?.platform || "unknown"
+        });
+        return;
+    }
+
     const box = document.getElementById("jsError");
     const text = document.getElementById("jsErrorText");
 
