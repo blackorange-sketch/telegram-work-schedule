@@ -362,7 +362,6 @@ async def generate_schedule_assignments(week_id, week_start, shift):
                 worker_id
                 for worker_id in eligible_workers
                 if worker_id in fixed_reserve_workers
-                and reserve_count[worker_id] == 0
             ]
 
             random_reserve = [
