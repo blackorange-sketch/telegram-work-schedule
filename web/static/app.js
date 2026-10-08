@@ -108,6 +108,17 @@ document.addEventListener("visibilitychange", () => {
         shareMessageInProgress = false;
         preparedShareMessageId = null;
         preparedShareWeek = null;
+        updateShareButtonState();
+
+        setTimeout(() => {
+            if (document.visibilityState !== "visible") {
+                appLogEvent("SHARE RECOVERY PREPARE SKIPPED: APP HIDDEN");
+                return;
+            }
+
+            appLogEvent("SHARE RECOVERY PREPARE START");
+            prepareShareInBackground();
+        }, 100);
     }
 });
 
