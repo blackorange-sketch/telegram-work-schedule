@@ -1396,12 +1396,20 @@ function updateShareButtonState() {
 
     shareScheduleImageButton.classList.toggle("share-disabled", !ready);
 
+    const computedStyle = window.getComputedStyle(shareScheduleImageButton);
+
     appLogEvent("SHARE BUTTON STATE", {
         ready,
         hasMessageId: !!preparedShareMessageId,
         week: preparedShareWeek,
         currentWeek: formatDate(getWeekStart()),
-        inProgress: shareMessageInProgress
+        inProgress: shareMessageInProgress,
+        className: shareScheduleImageButton.className,
+        disabled: shareScheduleImageButton.disabled,
+        opacity: computedStyle.opacity,
+        pointerEvents: computedStyle.pointerEvents,
+        backgroundColor: computedStyle.backgroundColor,
+        color: computedStyle.color
     });
 }
 
