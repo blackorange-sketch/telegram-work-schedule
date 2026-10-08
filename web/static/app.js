@@ -348,9 +348,17 @@ if (tg?.expand) {
 }
 
 if (tg?.requestFullscreen) {
-    tg.requestFullscreen().catch(() => {
+    try {
+        const fullscreenResult = tg.requestFullscreen();
+
+        if (fullscreenResult?.catch) {
+            fullscreenResult.catch(() => {
+                tg.expand?.();
+            });
+        }
+    } catch {
         tg.expand?.();
-    });
+    }
 }
 
 let workers = [];
