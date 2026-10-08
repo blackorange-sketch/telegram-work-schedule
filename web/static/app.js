@@ -1393,6 +1393,7 @@ function prepareShareInBackground() {
         })
         .finally(() => {
             sharePreparationPromise = null;
+            updateExportButtonState();
         });
 
     return sharePreparationPromise;
