@@ -1027,6 +1027,12 @@ function preloadWorkersScript() {
 
     return workersScriptPromise;
 }
+navButtons[0].addEventListener("click", async () => {
+    showScreen("scheduleScreen");
+    setActiveNav(0);
+    await showScheduleScreen();
+});
+
 navButtons[1].addEventListener("click", async () => {
     showScreen("workersScreen");
     if (!window.showWorkersScreen) {
