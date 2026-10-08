@@ -1466,6 +1466,7 @@ function bindScheduleButtons() {
         updateShareButtonState();
 
         const messageId = preparedShareMessageId;
+        const currentWeek = preparedShareWeek;
 
         console.log("SHARE MESSAGE ID:", messageId);
         appLogEvent("SHARE MESSAGE ID: " + messageId);
@@ -1478,11 +1479,44 @@ function bindScheduleButtons() {
                 { id: messageId }
             );
 
+            appLogEvent("SHARE NEXT PREPARE START");
+
             preparedShareMessageId = null;
             preparedShareWeek = null;
-        } finally {
+
+            updateShareButtonState();
+
+            prepareShareInBackground()
+                .then(nextMessageId => {
+                    if (
+                        nextMessageId &&
+                        formatDate(getWeekStart()) === currentWeek
+                    ) {
+                        appLogEvent("SHARE NEXT PREPARE READY", {
+                            messageId: nextMessageId,
+                            week: currentWeek
+                        });
+                    } else {
+                        appLogEvent("SHARE NEXT PREPARE NOT READY");
+                    }
+
+                    shareMessageInProgress = false;
+                    updateShareButtonState();
+                })
+                .catch(error => {
+                    console.log("SHARE NEXT PREPARE ERROR:", error);
+                    appLogEvent("SHARE NEXT PREPARE ERROR: " + String(error));
+
+                    shareMessageInProgress = false;
+                    updateShareButtonState();
+                });
+
+        } catch (error) {
             shareMessageInProgress = false;
             updateShareButtonState();
+
+            console.log("SHARE POSTEVENT ERROR:", error);
+            appLogEvent("SHARE POSTEVENT ERROR: " + String(error));
         }
     };
 
