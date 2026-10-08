@@ -53,6 +53,7 @@ from bot.database import (
     delete_worker_day_off,
     get_lunch_settings,
     set_lunch_setting,
+    EXOTEC_GROUPS,
 
 
 )
@@ -118,6 +119,15 @@ def require_admin(request: Request):
     return user
 
 
+def validate_exotec_group(group):
+    if group not in EXOTEC_GROUPS:
+        raise HTTPException(
+            status_code=400,
+            detail="Некоректна група Exotec",
+        )
+    return group
+
+
 dp = Dispatcher()
 def cleanup_old_schedule_images(max_age_seconds=3600):
     now = time.time()
@@ -181,12 +191,13 @@ async def auth_me(request: Request):
 
 
 @app.get("/api/workers")
-async def workers_list():
-    return await get_workers()
+async def workers_list(group: str = "exotec_2"):
+    group = validate_exotec_group(group)
+    return await get_workers(group)
 
 
 @app.post("/api/workers")
-async def workers_add(data: dict):
+async def workers_add(data: dict, group: str = "exotec_2"):
     name = str(data.get("name", "")).strip()
 
     if not name:
@@ -201,11 +212,16 @@ async def workers_add(data: dict):
             detail="Ім'я занадто довге",
         )
 
-    return await add_worker(name)
+    group = validate_exotec_group(group)
+    return await add_worker(name, group)
 
 
 @app.put("/api/workers/{worker_id}")
-async def worker_update(worker_id: int, data: dict):
+async def worker_update(
+    worker_id: int,
+    data: dict,
+    group: str = "exotec_2",
+):
     name = str(data.get("name", "")).strip()
 
     if not name:
@@ -220,7 +236,8 @@ async def worker_update(worker_id: int, data: dict):
             detail="Ім'я занадто довге",
         )
 
-    worker = await update_worker(worker_id, name)
+    group = validate_exotec_group(group)
+    worker = await update_worker(worker_id, name, group)
 
     if not worker:
         raise HTTPException(
@@ -232,8 +249,12 @@ async def worker_update(worker_id: int, data: dict):
 
 
 @app.delete("/api/workers/{worker_id}")
-async def worker_delete(worker_id: int):
-    worker = await deactivate_worker(worker_id)
+async def worker_delete(
+    worker_id: int,
+    group: str = "exotec_2",
+):
+    group = validate_exotec_group(group)
+    worker = await deactivate_worker(worker_id, group)
 
     if not worker:
         raise HTTPException(
@@ -244,9 +265,14 @@ async def worker_delete(worker_id: int):
     return worker
 
 @app.put("/api/workers/{worker_id}/reserve")
-async def worker_reserve(worker_id: int, data: dict):
+async def worker_reserve(
+    worker_id: int,
+    data: dict,
+    group: str = "exotec_2",
+):
     is_reserve = bool(data.get("is_reserve", False))
-    worker = await set_worker_reserve(worker_id, is_reserve)
+    group = validate_exotec_group(group)
+    worker = await set_worker_reserve(worker_id, is_reserve, group)
 
     if not worker:
         raise HTTPException(
@@ -308,7 +334,12 @@ async def schedule_settings_update(data: dict):
     return await set_schedule_settings(start_week, start_shift)
 
 @app.put("/api/lunch/settings")
-async def lunch_settings_update(data: dict):
+async def lunch_settings_update(
+    data: dict,
+    group: str = "exotec_2",
+):
+    group = validate_exotec_group(group)
+
     try:
         from datetime import date, time
 
@@ -344,11 +375,17 @@ async def lunch_settings_update(data: dict):
         worker1_id,
         worker2_id,
         start_time,
+        group,
     )
 
 
 @app.get("/api/lunch/settings")
-async def lunch_settings_get(week_start: str):
+async def lunch_settings_get(
+    week_start: str,
+    group: str = "exotec_2",
+):
+    group = validate_exotec_group(group)
+
     try:
         from datetime import date
         week_start = date.fromisoformat(week_start)
@@ -356,11 +393,16 @@ async def lunch_settings_get(week_start: str):
         raise HTTPException(status_code=400, detail="Некоректна дата тижня")
 
     week = await get_or_create_schedule_week(week_start)
-    return await get_lunch_settings(week["id"])
+    return await get_lunch_settings(week["id"], group)
 
 
 @app.get("/api/schedule/assignments")
-async def schedule_assignments_get(week_start: str):
+async def schedule_assignments_get(
+    week_start: str,
+    group: str = "exotec_2",
+):
+    group = validate_exotec_group(group)
+
     try:
         from datetime import date
         week_start = date.fromisoformat(week_start)
@@ -369,8 +411,8 @@ async def schedule_assignments_get(week_start: str):
 
     week = await get_or_create_schedule_week(week_start)
     assignments, reserves = await asyncio.gather(
-        get_schedule_assignments(week["id"]),
-        get_schedule_reserves(week["id"]),
+        get_schedule_assignments(week["id"], group),
+        get_schedule_reserves(week["id"], group),
     )
 
     return {
@@ -381,7 +423,12 @@ async def schedule_assignments_get(week_start: str):
 
 
 @app.put("/api/schedule/assignment")
-async def schedule_assignment_update(data: dict):
+async def schedule_assignment_update(
+    data: dict,
+    group: str = "exotec_2",
+):
+    group = validate_exotec_group(group)
+
     try:
         from datetime import date
 
@@ -393,7 +440,7 @@ async def schedule_assignment_update(data: dict):
     except (TypeError, ValueError):
         raise HTTPException(status_code=400, detail="Некоректні дані призначення")
 
-    if station not in range(15, 25):
+    if station not in EXOTEC_GROUPS[group]:
         raise HTTPException(status_code=400, detail="Некоректна станція")
 
     if shift not in (1, 2, 3):
@@ -407,6 +454,7 @@ async def schedule_assignment_update(data: dict):
         worker_id,
         station,
         shift,
+        group,
     )
 
     if assignment is None:
@@ -419,7 +467,12 @@ async def schedule_assignment_update(data: dict):
 
 
 @app.delete("/api/schedule/assignment")
-async def schedule_assignment_delete(data: dict):
+async def schedule_assignment_delete(
+    data: dict,
+    group: str = "exotec_2",
+):
+    group = validate_exotec_group(group)
+
     try:
         from datetime import date
 
@@ -429,7 +482,7 @@ async def schedule_assignment_delete(data: dict):
     except (TypeError, ValueError):
         raise HTTPException(status_code=400, detail="Некоректні дані призначення")
 
-    if station not in range(15, 25):
+    if station not in EXOTEC_GROUPS[group]:
         raise HTTPException(status_code=400, detail="Некоректна станція")
 
     week = await get_or_create_schedule_week(week_start)
@@ -438,6 +491,7 @@ async def schedule_assignment_delete(data: dict):
         week["id"],
         work_date,
         station,
+        group,
     )
 
     if assignment is None:
@@ -450,8 +504,13 @@ async def schedule_assignment_delete(data: dict):
 
 
 @app.put("/api/schedule/reserve")
-async def schedule_reserve_put(data: dict):
+async def schedule_reserve_put(
+    data: dict,
+    group: str = "exotec_2",
+):
     from datetime import date
+
+    group = validate_exotec_group(group)
 
     try:
         week_start = date.fromisoformat(data["week_start"])
@@ -461,7 +520,12 @@ async def schedule_reserve_put(data: dict):
         raise HTTPException(status_code=400, detail="Некоректні дані Reserve")
 
     week = await get_or_create_schedule_week(week_start)
-    await set_schedule_reserve(week["id"], work_date, worker_id)
+    await set_schedule_reserve(
+        week["id"],
+        work_date,
+        worker_id,
+        group,
+    )
 
     return {"ok": True}
 
@@ -471,7 +535,9 @@ async def schedule_reserve_delete(
     week_start: str,
     work_date: str,
     worker_id: int,
+    group: str = "exotec_2",
 ):
+    group = validate_exotec_group(group)
     from datetime import date
 
     try:
@@ -481,14 +547,24 @@ async def schedule_reserve_delete(
         raise HTTPException(status_code=400, detail="Некоректна дата")
 
     week = await get_or_create_schedule_week(week_start)
-    await delete_schedule_reserve(week["id"], work_date, worker_id)
+    await delete_schedule_reserve(
+        week["id"],
+        work_date,
+        worker_id,
+        group,
+    )
 
     return {"ok": True}
 
 
 
 @app.delete("/api/schedule/clear")
-async def schedule_clear(data: dict):
+async def schedule_clear(
+    data: dict,
+    group: str = "exotec_2",
+):
+    group = validate_exotec_group(group)
+
     try:
         from datetime import date
         week_start = date.fromisoformat(data.get("week_start"))
@@ -496,13 +572,21 @@ async def schedule_clear(data: dict):
         raise HTTPException(status_code=400, detail="Некоректна дата тижня")
 
     week = await get_or_create_schedule_week(week_start)
-    await delete_schedule_assignments_for_week(week["id"])
+    await delete_schedule_assignments_for_week(
+        week["id"],
+        group,
+    )
 
     return {"ok": True}
 
 
 @app.post("/api/schedule/generate")
-async def schedule_generate(data: dict):
+async def schedule_generate(
+    data: dict,
+    group: str = "exotec_2",
+):
+    group = validate_exotec_group(group)
+
     try:
         from datetime import date
         week_start = date.fromisoformat(data.get("week_start"))
@@ -519,15 +603,22 @@ async def schedule_generate(data: dict):
 
     week = await get_or_create_schedule_week(week_start)
 
-    await delete_schedule_assignments_for_week(week["id"])
+    await delete_schedule_assignments_for_week(
+        week["id"],
+        group,
+    )
 
     generated = await generate_schedule_assignments(
         week["id"],
         week_start,
-        shift
+        shift,
+        group,
     )
 
-    assignments = await get_schedule_assignments(week["id"])
+    assignments = await get_schedule_assignments(
+        week["id"],
+        group,
+    )
 
     return {
         "week": week,
@@ -556,7 +647,12 @@ async def schedule_days_get(week_start: str):
 
 
 @app.get("/api/worker-days-off")
-async def worker_days_off_get(start_date: str, end_date: str):
+async def worker_days_off_get(
+    start_date: str,
+    end_date: str,
+    group: str = "exotec_2",
+):
+    group = validate_exotec_group(group)
     try:
         from datetime import date
         start_date = date.fromisoformat(start_date)
@@ -567,7 +663,7 @@ async def worker_days_off_get(start_date: str, end_date: str):
     if start_date > end_date:
         raise HTTPException(status_code=400, detail="Некоректний діапазон дат")
 
-    days_off = await get_worker_days_off(start_date, end_date)
+    days_off = await get_worker_days_off(start_date, end_date, group)
 
     return {
         "days_off": days_off
@@ -575,7 +671,11 @@ async def worker_days_off_get(start_date: str, end_date: str):
 
 
 @app.put("/api/worker-days-off")
-async def worker_days_off_update(data: dict):
+async def worker_days_off_update(
+    data: dict,
+    group: str = "exotec_2",
+):
+    group = validate_exotec_group(group)
     try:
         from datetime import date
         worker_id = int(data.get("worker_id"))
@@ -586,9 +686,9 @@ async def worker_days_off_update(data: dict):
     is_day_off = bool(data.get("is_day_off", True))
 
     if is_day_off:
-        result = await set_worker_day_off(worker_id, work_date)
+        result = await set_worker_day_off(worker_id, work_date, group)
     else:
-        result = await delete_worker_day_off(worker_id, work_date)
+        result = await delete_worker_day_off(worker_id, work_date, group)
 
     return {
         "day_off": result
@@ -596,14 +696,19 @@ async def worker_days_off_update(data: dict):
 
 
 @app.delete("/api/worker-days-off")
-async def worker_days_off_delete(worker_id: int, work_date: str):
+async def worker_days_off_delete(
+    worker_id: int,
+    work_date: str,
+    group: str = "exotec_2",
+):
+    group = validate_exotec_group(group)
     try:
         from datetime import date
         work_date = date.fromisoformat(work_date)
     except (TypeError, ValueError):
         raise HTTPException(status_code=400, detail="Некоректна дата")
 
-    result = await delete_worker_day_off(worker_id, work_date)
+    result = await delete_worker_day_off(worker_id, work_date, group)
 
     if result is None:
         raise HTTPException(status_code=404, detail="Вихідний не знайдено")

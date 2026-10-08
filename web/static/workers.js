@@ -39,7 +39,7 @@ async function loadWorkers() {
     const list = document.getElementById("workersList");
 
     try {
-        const response = await fetch("/api/workers?t=" + Date.now());
+        const response = await fetch(`/api/workers?group=${encodeURIComponent(selectedExotecGroup)}&t=${Date.now()}`);
         workers = await response.json();
 
         renderWorkers(workers);
@@ -144,8 +144,8 @@ async function saveWorker() {
 
     const editing = editingWorkerId !== null;
     const url = editing
-        ? `/api/workers/${editingWorkerId}`
-        : "/api/workers";
+        ? `/api/workers/${editingWorkerId}?group=${encodeURIComponent(selectedExotecGroup)}`
+        : `/api/workers?group=${encodeURIComponent(selectedExotecGroup)}`;
 
     const response = await fetch(url, {
         method: editing ? "PUT" : "POST",
@@ -192,7 +192,7 @@ async function deleteWorker(id) {
         return;
     }
 
-    const response = await fetch(`/api/workers/${id}`, {
+    const response = await fetch(`/api/workers/${id}?group=${encodeURIComponent(selectedExotecGroup)}`, {
         method: "DELETE"
     });
 
@@ -205,7 +205,7 @@ async function deleteWorker(id) {
 }
 
 async function toggleReserve(id, currentState) {
-    const response = await fetch(`/api/workers/${id}/reserve`, {
+    const response = await fetch(`/api/workers/${id}/reserve?group=${encodeURIComponent(selectedExotecGroup)}`, {
         method: "PUT",
         headers: {
             "Content-Type": "application/json"

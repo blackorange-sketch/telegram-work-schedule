@@ -1130,3 +1130,98 @@ main {
 #copyJsLogHeaderButton:active {
     opacity: 0.8;
 }
+
+/* =========================
+   EXOTEC GROUP SELECTOR
+   ========================= */
+
+#groupSelectScreen {
+    min-height: calc(100vh - 120px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px 16px;
+}
+
+#groupSelectScreen[hidden] {
+    display: none;
+}
+
+.group-select {
+    width: min(100%, 420px);
+    text-align: center;
+}
+
+.group-select h2 {
+    margin: 0 0 24px;
+    font-size: 28px;
+    font-weight: 800;
+}
+
+.exotec-group-list {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.exotec-group-list button {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    padding: 16px 18px;
+    border: 1px solid rgba(128, 128, 128, 0.25);
+    border-radius: 14px;
+    background: var(--card-bg, #ffffff);
+    color: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: transform 0.12s ease, opacity 0.12s ease;
+}
+
+.exotec-group-list button:active {
+    transform: scale(0.98);
+    opacity: 0.8;
+}
+
+.exotec-group-list button strong {
+    font-size: 17px;
+    font-weight: 700;
+}
+
+.exotec-group-list button span {
+    font-size: 13px;
+    opacity: 0.65;
+}
+
+/* =========================
+   CURRENT EXOTEC GROUP BAR
+   ========================= */
+
+.exotec-current-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 16px;
+}
+
+.exotec-current-bar button {
+    border: 0;
+    padding: 8px 12px;
+    border-radius: 10px;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+}
+
+.exotec-current-bar button:active {
+    opacity: 0.6;
+}
+
+.exotec-current-bar strong {
+    font-size: 16px;
+    font-weight: 700;
+}

@@ -361,6 +361,18 @@ if (tg?.requestFullscreen) {
     }
 }
 
+let selectedExotecGroup = "exotec_2";
+
+const EXOTEC_STATION_RANGES = {
+    exotec_1: [1, 14],
+    exotec_2: [15, 24],
+    exotec_3: [25, 34],
+};
+
+function getSelectedExotecStationRange() {
+    return EXOTEC_STATION_RANGES[selectedExotecGroup];
+}
+
 let workers = [];
 let scheduleDays = [];
 let scheduleShift = null;
@@ -381,7 +393,7 @@ async function loadWorkerDaysOff() {
     const weekEnd = formatDate(weekEndDate);
 
     const response = await fetch(
-        `/api/worker-days-off?start_date=${requestWeek}&end_date=${weekEnd}`
+        `/api/worker-days-off?start_date=${requestWeek}&end_date=${weekEnd}&group=${encodeURIComponent(selectedExotecGroup)}`
     );
 
     if (!response.ok) {
@@ -408,7 +420,7 @@ async function loadScheduleAssignments() {
     const requestWeek = formatDate(getWeekStart());
 
     const response = await fetch(
-        `/api/schedule/assignments?week_start=${requestWeek}`
+        `/api/schedule/assignments?week_start=${requestWeek}&group=${encodeURIComponent(selectedExotecGroup)}`
     );
 
     if (!response.ok) {
@@ -446,7 +458,8 @@ async function saveScheduleAssignment(assignment, workDate) {
             work_date: workDate,
             worker_id: assignment.worker_id,
             station: assignment.station,
-            shift: assignment.shift || scheduleShift
+            shift: assignment.shift || scheduleShift,
+                group: selectedExotecGroup
         })
     });
 
@@ -484,7 +497,8 @@ function openStationChoiceModal(worker, workDate, currentAssignment = null) {
             body: JSON.stringify({
                 worker_id: worker.id,
                 work_date: workDate,
-                is_day_off: true
+                is_day_off: true,
+                group: selectedExotecGroup
             })
         });
 
@@ -523,7 +537,8 @@ function openStationChoiceModal(worker, workDate, currentAssignment = null) {
             body: JSON.stringify({
                 week_start: formatDate(getWeekStart()),
                 work_date: workDate,
-                worker_id: worker.id
+                worker_id: worker.id,
+                            group: selectedExotecGroup
             })
         });
 
@@ -556,7 +571,8 @@ function openStationChoiceModal(worker, workDate, currentAssignment = null) {
         }
     }
 
-    for (let station = 15; station <= 24; station++) {
+    const [stationStart, stationEnd] = getSelectedExotecStationRange();
+    for (let station = stationStart; station <= stationEnd; station++) {
         const button = document.createElement("button");
         button.className = "station-choice-option";
         button.textContent = station;
@@ -647,7 +663,8 @@ function openStationChoiceModal(worker, workDate, currentAssignment = null) {
                 body: JSON.stringify({
                     week_start: weekStart,
                     work_date: workDate,
-                    station: currentAssignment.station
+                    station: currentAssignment.station,
+                    group: selectedExotecGroup
                 })
             });
 
@@ -726,7 +743,8 @@ function openDayOffModal(worker, workDate) {
             body: JSON.stringify({
                 worker_id: worker.id,
                 work_date: workDate,
-                is_day_off: false
+                is_day_off: false,
+                group: selectedExotecGroup
             })
         });
 
@@ -837,7 +855,7 @@ function renderSchedule() {
                 const weekStart = formatDate(getWeekStart());
 
                 const response = await fetch(
-                    `/api/schedule/reserve?week_start=${weekStart}&work_date=${workDate}&worker_id=${worker.id}`,
+                    `/api/schedule/reserve?week_start=${weekStart}&work_date=${workDate}&worker_id=${worker.id}&group=${encodeURIComponent(selectedExotecGroup)}`,
                     { method: "DELETE" }
                 );
 
@@ -1026,11 +1044,15 @@ navButtons[2].addEventListener("click", async () => {
 
 
 async function loadScheduleWorkers() {
-    const response = await fetch("/api/workers");
+    const response = await fetch(
+        `/api/workers?group=${encodeURIComponent(selectedExotecGroup)}`
+    );
+
     if (!response.ok) {
         alert("Не вдалося завантажити працівників");
         return;
     }
+
     const data = await response.json();
     workers = data;
 }
@@ -1648,7 +1670,8 @@ function bindScheduleButtons() {
                 "Content-Type": "application/json"
             },
             body: JSON.stringify({
-                week_start: weekStart
+                week_start: weekStart,
+                group: selectedExotecGroup
             })
         });
 
@@ -1680,12 +1703,6 @@ function bindScheduleButtons() {
 }
 
 
-navButtons[0].addEventListener("click", () => {
-    showScreen("scheduleScreen");
-    showScheduleScreen();
-    setActiveNav(0);
-});
-
 function setActiveNav(index) {
     navButtons.forEach((button, i) => {
         button.classList.toggle("active", i === index);
@@ -1698,13 +1715,96 @@ function showScreen(screenId) {
     });
 }
 
-showScreen("scheduleScreen");
+function saveSelectedExotecGroup() {
+    localStorage.setItem("selectedExotecGroup", selectedExotecGroup);
+}
+
+function loadSelectedExotecGroup() {
+    const savedGroup = localStorage.getItem("selectedExotecGroup");
+
+    if (savedGroup && Object.prototype.hasOwnProperty.call(EXOTEC_STATION_RANGES, savedGroup)) {
+        selectedExotecGroup = savedGroup;
+    }
+}
+
+async function selectExotecGroup(group) {
+    if (!Object.prototype.hasOwnProperty.call(EXOTEC_STATION_RANGES, group)) {
+        return;
+    }
+
+    selectedExotecGroup = group;
+    saveSelectedExotecGroup();
+    updateCurrentExotecGroupLabel();
+
+    scheduleLoaded = false;
+    lunchScreenLoaded = false;
+    lunchSettings = [];
+    lunchSettingsPromise = null;
+    lunchSettingsPromiseWeek = null;
+    scheduleAssignments = [];
+    scheduleReserves = [];
+    workerDaysOff = [];
+    changingStations.clear();
+
+    showScreen("scheduleScreen");
+    setActiveNav(0);
+
+    await showScheduleScreen();
+}
+
+function showExotecGroupSelector() {
+    showScreen("groupSelectScreen");
+}
+
+function updateCurrentExotecGroupLabel() {
+    const label = document.getElementById("currentExotecGroupLabel");
+
+    if (!label) {
+        return;
+    }
+
+    const groupNumber = selectedExotecGroup.replace("exotec_", "");
+    label.textContent = `Exotec ${groupNumber}`;
+}
+
+function bindCurrentExotecGroupButton() {
+    const button = document.getElementById("changeExotecGroupButton");
+
+    if (!button) {
+        return;
+    }
+
+    button.addEventListener("click", () => {
+        showExotecGroupSelector();
+    });
+}
+
+function bindExotecGroupSelector() {
+    const groupList = document.getElementById("exotecGroupList");
+
+    if (!groupList) {
+        return;
+    }
+
+    groupList.querySelectorAll("[data-exotec-group]").forEach(button => {
+        button.addEventListener("click", () => {
+            selectExotecGroup(button.dataset.exotecGroup).catch(error => {
+                console.error("EXOTEC GROUP SELECT:", error);
+                appLogEvent("EXOTEC GROUP SELECT ERROR: " + (error?.stack || String(error)));
+            });
+        });
+    });
+}
+
+loadSelectedExotecGroup();
+bindExotecGroupSelector();
+bindCurrentExotecGroupButton();
+updateCurrentExotecGroupLabel();
+showExotecGroupSelector();
 
 adminAccessPromise.then(authorized => {
     if (authorized) {
-        showScheduleScreen();
-        preloadWorkersScript().catch(() => {});
-        loadLunchSettings().catch(() => {});
+        showExotecGroupSelector();
     }
 });
 
@@ -1721,7 +1821,7 @@ async function loadLunchSettings() {
     const requestWeek = weekStart;
 
     const requestPromise = fetch(
-        `/api/lunch/settings?week_start=${requestWeek}`
+        `/api/lunch/settings?week_start=${requestWeek}&group=${encodeURIComponent(selectedExotecGroup)}`
     )
         .then(async response => {
             if (!response.ok) {
@@ -1908,7 +2008,8 @@ async function showLunchScreen() {
                         pair_number: index + 1,
                         worker1_id: worker1Id,
                         worker2_id: worker2Id,
-                        start_time: times[shift - 1]
+                        start_time: times[shift - 1],
+                           group: selectedExotecGroup
                     })
                 });
 
@@ -2172,7 +2273,8 @@ document.getElementById("clearScheduleButton").onclick = async () => {
             "Content-Type": "application/json"
         },
         body: JSON.stringify({
-            week_start: weekStart
+            week_start: weekStart,
+            group: selectedExotecGroup
         })
     });
 

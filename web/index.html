@@ -72,7 +72,37 @@
 
     <!-- SCHEDULE -->
     <main>
+        <div id="groupSelectScreen" hidden>
+            <section class="group-select">
+                <h2>Exotec</h2>
+
+                <div id="exotecGroupList" class="exotec-group-list">
+                    <button type="button" data-exotec-group="exotec_1">
+                        <strong>Exotec 1</strong>
+                        <span>Stations 1–14</span>
+                    </button>
+
+                    <button type="button" data-exotec-group="exotec_2">
+                        <strong>Exotec 2</strong>
+                        <span>Stations 15–24</span>
+                    </button>
+
+                    <button type="button" data-exotec-group="exotec_3">
+                        <strong>Exotec 3</strong>
+                        <span>Stations 25–34</span>
+                    </button>
+                </div>
+            </section>
+        </div>
+
         <div id="scheduleScreen">
+        <div class="exotec-current-bar">
+            <button type="button" id="changeExotecGroupButton">
+                ← Exotec
+            </button>
+            <strong id="currentExotecGroupLabel">Exotec 2</strong>
+        </div>
+
 
         <section class="schedule-wrapper">
 
