@@ -239,7 +239,7 @@ async def create_schedule_days(week_id, week_start):
             )
             SELECT
                 $1,
-                $2 + day_offset
+                $2::date + day_offset::integer
             FROM generate_series(0, 6) AS day_offset
             ON CONFLICT (week_id, work_date) DO NOTHING
             RETURNING id, week_id, work_date, is_working_day, default_shift
