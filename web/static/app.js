@@ -1713,6 +1713,8 @@ function showScreen(screenId) {
     document.querySelectorAll("main > div[id$='Screen']").forEach(screen => {
         screen.hidden = screen.id !== screenId;
     });
+
+    document.body.classList.toggle("group-select-mode", screenId === "groupSelectScreen");
 }
 
 function saveSelectedExotecGroup() {

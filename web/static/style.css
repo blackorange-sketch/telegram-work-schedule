@@ -1225,3 +1225,17 @@ main {
     font-size: 16px;
     font-weight: 700;
 }
+
+/* =========================
+   EXOTEC GROUP SELECT MODE
+   ========================= */
+
+body.group-select-mode .header,
+body.group-select-mode .week-navigation,
+body.group-select-mode .bottom-nav {
+    display: none;
+}
+
+body.group-select-mode #groupSelectScreen {
+    min-height: 100vh;
+}
