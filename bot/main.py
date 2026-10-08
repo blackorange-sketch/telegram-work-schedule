@@ -119,6 +119,23 @@ def require_admin(request: Request):
 
 
 dp = Dispatcher()
+def cleanup_old_schedule_images(max_age_seconds=3600):
+    now = time.time()
+    temp_dir = tempfile.gettempdir()
+
+    for name in os.listdir(temp_dir):
+        if not name.startswith("schedule-") or not name.endswith(".jpg"):
+            continue
+
+        file_path = os.path.join(temp_dir, name)
+
+        try:
+            if now - os.path.getmtime(file_path) > max_age_seconds:
+                os.remove(file_path)
+        except OSError:
+            pass
+
+
 app = FastAPI()
 
 @app.middleware("http")
@@ -469,19 +486,6 @@ async def schedule_reserve_delete(
     return {"ok": True}
 
 
-@app.delete("/api/schedule")
-async def schedule_clear(data: dict):
-    try:
-        from datetime import date
-        week_start = date.fromisoformat(data.get("week_start"))
-    except (TypeError, ValueError):
-        raise HTTPException(status_code=400, detail="Некоректна дата тижня")
-
-    week = await get_or_create_schedule_week(week_start)
-    await delete_schedule_assignments_for_week(week["id"])
-
-    return {"ok": True}
-
 
 @app.delete("/api/schedule/clear")
 async def schedule_clear(data: dict):
@@ -659,6 +663,8 @@ async def export_schedule(request: Request):
     if len(data) > 10 * 1024 * 1024:
         raise HTTPException(status_code=400, detail="Файл завеликий")
 
+    cleanup_old_schedule_images()
+
     file_id = uuid.uuid4().hex
     file_path = os.path.join(tempfile.gettempdir(), f"schedule-{file_id}.jpg")
 
@@ -710,6 +716,8 @@ async def share_prepared_schedule(request: Request):
     if not WEB_APP_URL:
         raise HTTPException(status_code=500, detail="WEB_APP_URL не налаштований")
 
+    cleanup_old_schedule_images()
+
     file_id = uuid.uuid4().hex
     file_path = os.path.join(tempfile.gettempdir(), f"schedule-{file_id}.jpg")
 
@@ -754,8 +762,11 @@ async def share_prepared_schedule(request: Request):
                 headers={"Content-Type": "application/x-www-form-urlencoded"},
             )
 
-            with urllib.request.urlopen(request_obj, timeout=15) as response:
-                response_data = json.loads(response.read().decode())
+            def send_request():
+                with urllib.request.urlopen(request_obj, timeout=15) as response:
+                    return json.loads(response.read().decode())
+
+            response_data = await asyncio.to_thread(send_request)
 
             elapsed = time.monotonic() - started_at
             print(
@@ -787,11 +798,6 @@ async def share_prepared_schedule(request: Request):
             detail=f"Помилка Telegram API: {last_error}",
         )
 
-    if not response_data.get("ok"):
-        raise HTTPException(
-            status_code=502,
-            detail=response_data.get("description", "Telegram API error"),
-        )
 
     prepared = response_data.get("result")
 

@@ -56,6 +56,11 @@ async def init_db():
             )
         """)
         await conn.execute("""
+            CREATE INDEX IF NOT EXISTS idx_schedule_assignments_date_worker
+            ON schedule_assignments (work_date, worker_id)
+        """)
+
+        await conn.execute("""
             CREATE TABLE IF NOT EXISTS schedule_days (
                 id SERIAL PRIMARY KEY,
                 week_id INTEGER NOT NULL REFERENCES schedule_weeks(id) ON DELETE CASCADE,
@@ -73,6 +78,11 @@ async def init_db():
                 UNIQUE (worker_id, work_date)
             )
         """)
+        await conn.execute("""
+            CREATE INDEX IF NOT EXISTS idx_worker_days_off_work_date_worker
+            ON worker_days_off (work_date, worker_id)
+        """)
+
         await conn.execute("""
             CREATE TABLE IF NOT EXISTS schedule_reserves (
                 id SERIAL PRIMARY KEY,
@@ -101,9 +111,6 @@ async def init_db():
 
 
 
-        count = await conn.fetchval(
-            "SELECT COUNT(*) FROM workers"
-        )
 
 
 
@@ -225,21 +232,20 @@ async def get_worker_days_off(start_date, end_date):
 
 async def create_schedule_days(week_id, week_start):
     async with _pool.acquire() as conn:
-        rows = []
+        rows = await conn.fetch("""
+            INSERT INTO schedule_days (
+                week_id,
+                work_date
+            )
+            SELECT
+                $1,
+                $2 + day_offset
+            FROM generate_series(0, 6) AS day_offset
+            ON CONFLICT (week_id, work_date) DO NOTHING
+            RETURNING id, week_id, work_date, is_working_day, default_shift
+        """, week_id, week_start)
 
-        for day_offset in range(7):
-            work_date = week_start + timedelta(days=day_offset)
-            row = await conn.fetchrow("""
-                INSERT INTO schedule_days (week_id, work_date)
-                VALUES ($1, $2)
-                ON CONFLICT (week_id, work_date) DO NOTHING
-                RETURNING id, week_id, work_date, is_working_day, default_shift
-            """, week_id, work_date)
-
-            if row:
-                rows.append(dict(row))
-
-        return rows
+        return [dict(row) for row in rows]
 
 async def update_schedule_day(week_id, work_date, is_working_day, default_shift):
     async with _pool.acquire() as conn:
@@ -295,9 +301,10 @@ async def get_schedule_reserves(week_id):
 async def generate_schedule_assignments(week_id, week_start, shift):
     async with _pool.acquire() as conn:
         existing = await conn.fetchval("""
-            SELECT COUNT(*)
+            SELECT 1
             FROM schedule_assignments
             WHERE week_id = $1
+            LIMIT 1
         """, week_id)
 
         if existing:
@@ -328,16 +335,6 @@ async def generate_schedule_assignments(week_id, week_start, shift):
         days_off = {
             (row["worker_id"], row["work_date"])
             for row in days_off_rows
-        }
-
-        previous_reserve_rows = await conn.fetch("""
-            SELECT DISTINCT worker_id
-            FROM schedule_reserves
-            WHERE work_date BETWEEN $1 AND $2
-        """, week_start - timedelta(days=7), week_start - timedelta(days=3))
-
-        previous_reserve_workers = {
-            row["worker_id"] for row in previous_reserve_rows
         }
 
         stations = list(range(15, 25))
@@ -418,8 +415,19 @@ async def generate_schedule_assignments(week_id, week_start, shift):
                     f"Не вдалося розподілити станції на {work_date}"
                 )
 
-            for worker_id, station in assignment.items():
-                await conn.execute("""
+            assignment_rows = [
+                (
+                    shift,
+                    week_id,
+                    work_date,
+                    worker_id,
+                    station,
+                )
+                for worker_id, station in assignment.items()
+            ]
+
+            if assignment_rows:
+                await conn.executemany("""
                     INSERT INTO schedule_assignments (
                         shift,
                         week_id,
@@ -428,20 +436,31 @@ async def generate_schedule_assignments(week_id, week_start, shift):
                         station
                     )
                     VALUES ($1, $2, $3, $4, $5)
-                """, shift, week_id, work_date, worker_id, station)
+                """, assignment_rows)
 
+            for worker_id, station in assignment.items():
                 used_by_worker[worker_id].add(station)
 
-            for worker_id in reserve_workers:
-                await conn.execute("""
+            reserve_rows = [
+                (
+                    week_id,
+                    work_date,
+                    worker_id,
+                )
+                for worker_id in reserve_workers
+            ]
+
+            if reserve_rows:
+                await conn.executemany("""
                     INSERT INTO schedule_reserves (
                         week_id,
                         work_date,
                         worker_id
                     )
                     VALUES ($1, $2, $3)
-                """, week_id, work_date, worker_id)
+                """, reserve_rows)
 
+            for worker_id in reserve_workers:
                 reserve_count[worker_id] += 1
 
         return True

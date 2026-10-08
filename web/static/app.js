@@ -231,7 +231,12 @@ window.fetch = async (input, init = {}) => {
         url
     });
 
-    if (url.includes("/api/")) {
+    const requestUrl = new URL(url, window.location.origin);
+        const isApiRequest =
+            requestUrl.origin === window.location.origin &&
+            requestUrl.pathname.startsWith("/api/");
+
+        if (isApiRequest) {
         const headers = new Headers(init.headers || {});
 
         if (!headers.has("X-Telegram-Init-Data")) {
@@ -274,11 +279,7 @@ async function checkAdminAccess() {
 
     const denied = document.getElementById("accessDenied");
 
-    const response = await fetch("/api/auth/me", {
-        headers: {
-            "X-Telegram-Init-Data": tg.initData || ""
-        }
-    });
+    const response = await fetch("/api/auth/me");
 
     appLogEvent("ADMIN AUTH RESPONSE", {
         status: response.status,
@@ -286,14 +287,16 @@ async function checkAdminAccess() {
     });
 
     if (!response.ok) {
-        denied.innerHTML = "<h2>Доступ заборонено</h2><p>Цей Mini App доступний лише адміністраторам.</p>";
+        denied.querySelector("h2").textContent = "Доступ заборонено";
+        denied.querySelector("p").textContent =
+            "Цей Mini App доступний лише адміністраторам.";
         throw new Error("Admin access denied");
     }
 
     denied.style.display = "none";
     document.querySelector(".app").style.display = "block";
 
-    return await response.json();
+    return response.json();
 }
 let preparedShareMessageId = null;
 let preparedShareWeek = null;
@@ -318,8 +321,12 @@ if (tg?.onEvent) {
 const adminAccessPromise = checkAdminAccess()
     .then(() => {
         appLogEvent("ADMIN AUTH SUCCESS");
-        tg.ready();
-        appLogEvent("TELEGRAM READY");
+
+        if (tg?.ready) {
+            tg.ready();
+            appLogEvent("TELEGRAM READY");
+        }
+
         return true;
     })
     .catch((error) => {
@@ -341,11 +348,9 @@ if (tg?.expand) {
 }
 
 if (tg?.requestFullscreen) {
-    try {
-        tg.requestFullscreen();
-    } catch {
-        tg.expand();
-    }
+    tg.requestFullscreen().catch(() => {
+        tg.expand?.();
+    });
 }
 
 let workers = [];
@@ -355,44 +360,66 @@ let scheduleAssignments = [];
 let scheduleReserves = [];
 let scheduleLoaded = false;
 let changingStations = new Set();
-let workersScreenLoaded = false;
 let lunchScreenLoaded = false;
 let lunchSettings = [];
 let lunchSettingsPromise = null;
+let lunchSettingsPromiseWeek = null;
 let workerDaysOff = [];
 
 async function loadWorkerDaysOff() {
-    const weekStart = formatDate(getWeekStart());
+    const requestWeek = formatDate(getWeekStart());
     const weekEndDate = new Date(getWeekStart());
     weekEndDate.setDate(weekEndDate.getDate() + 6);
     const weekEnd = formatDate(weekEndDate);
 
     const response = await fetch(
-        `/api/worker-days-off?start_date=${weekStart}&end_date=${weekEnd}`
+        `/api/worker-days-off?start_date=${requestWeek}&end_date=${weekEnd}`
     );
 
     if (!response.ok) {
+        if (formatDate(getWeekStart()) !== requestWeek) {
+            return;
+        }
+
         alert("Не вдалося завантажити вихідні працівників");
         workerDaysOff = [];
         return;
     }
 
     const data = await response.json();
+
+    if (formatDate(getWeekStart()) !== requestWeek) {
+        return;
+    }
+
     workerDaysOff = data.days_off;
 }
 
 
 async function loadScheduleAssignments() {
-    const weekStart = formatDate(getWeekStart());
-    const response = await fetch(`/api/schedule/assignments?week_start=${weekStart}`);
+    const requestWeek = formatDate(getWeekStart());
+
+    const response = await fetch(
+        `/api/schedule/assignments?week_start=${requestWeek}`
+    );
 
     if (!response.ok) {
+        if (formatDate(getWeekStart()) !== requestWeek) {
+            return;
+        }
+
         alert("Не вдалося завантажити призначення");
         scheduleAssignments = [];
+        scheduleReserves = [];
         return;
     }
 
     const data = await response.json();
+
+    if (formatDate(getWeekStart()) !== requestWeek) {
+        return;
+    }
+
     scheduleAssignments = data.assignments;
     scheduleReserves = data.reserves || [];
 }
@@ -424,100 +451,6 @@ async function saveScheduleAssignment(assignment, workDate) {
     return true;
 }
 
-function openStationModal(assignment, workDate) {
-    const modal = document.getElementById("stationModal");
-    const title = document.getElementById("stationModalTitle");
-    const list = document.getElementById("stationWorkerList");
-    const clearButton = document.getElementById("clearStationButton");
-    const cancelButton = document.getElementById("cancelStationButton");
-
-    title.textContent = `Станція ${assignment.station}`;
-    list.innerHTML = "";
-
-    workers.forEach(worker => {
-        const button = document.createElement("button");
-        button.className = "station-worker-option";
-        button.textContent = worker.name;
-
-        button.onclick = async () => {
-            const selectedAssignment = scheduleAssignments.find(item =>
-                item.work_date === workDate &&
-                item.worker_id === worker.id
-            );
-
-            changingStations.add(`${workDate}_${assignment.station}`);
-
-            if (selectedAssignment && selectedAssignment !== assignment) {
-                changingStations.add(`${workDate}_${selectedAssignment.station}`);
-
-                selectedAssignment.worker_id = assignment.worker_id;
-                selectedAssignment.worker_name = assignment.worker_name;
-
-                await saveScheduleAssignment(selectedAssignment, workDate);
-            }
-
-            assignment.worker_id = worker.id;
-            assignment.worker_name = worker.name;
-
-            const saved = await saveScheduleAssignment(assignment, workDate);
-
-            if (!saved) {
-                return;
-            }
-
-            modal.classList.add("hidden");
-            renderSchedule(); await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-            prepareShareInBackground();
-        };
-
-        list.appendChild(button);
-    });
-
-    clearButton.onclick = async () => {
-        const weekStart = formatDate(getWeekStart());
-
-        const response = await fetch("/api/schedule/assignment", {
-            method: "DELETE",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-                week_start: weekStart,
-                work_date: workDate,
-                station: assignment.station
-            })
-        });
-
-        if (!response.ok) {
-            alert("Не вдалося звільнити станцію");
-            return;
-        }
-
-        const index = scheduleAssignments.indexOf(assignment);
-
-        if (index !== -1) {
-            scheduleAssignments.splice(index, 1);
-        }
-
-        changingStations.add(`${workDate}_${assignment.station}`);
-
-        modal.classList.add("hidden");
-        renderSchedule();
-        prepareShareInBackground();
-    };
-
-    cancelButton.onclick = () => {
-        modal.classList.add("hidden");
-    };
-
-    modal.onclick = event => {
-        if (event.target === modal) {
-            modal.classList.add("hidden");
-        }
-    };
-
-    modal.classList.remove("hidden");
-}
 
 function openStationChoiceModal(worker, workDate, currentAssignment = null) {
     const modal = document.getElementById("stationModal");
@@ -564,8 +497,7 @@ function openStationChoiceModal(worker, workDate, currentAssignment = null) {
 
         modal.classList.add("hidden");
         clearButton.style.display = "";
-        renderSchedule();
-        prepareShareInBackground();
+        markScheduleChanged();
     };
 
     list.appendChild(dayOffButton);
@@ -594,21 +526,34 @@ function openStationChoiceModal(worker, workDate, currentAssignment = null) {
 
         modal.classList.add("hidden");
         await loadScheduleAssignments();
-        renderSchedule();
-        prepareShareInBackground();
+        markScheduleChanged();
     };
 
     list.appendChild(reserveButton);
+
+    const stationAssignments = new Map();
+    const workerAssignments = new Map();
+
+    for (const item of scheduleAssignments) {
+        if (item.work_date !== workDate) {
+            continue;
+        }
+
+        if (!stationAssignments.has(item.station)) {
+            stationAssignments.set(item.station, item);
+        }
+
+        if (!workerAssignments.has(Number(item.worker_id))) {
+            workerAssignments.set(Number(item.worker_id), item);
+        }
+    }
 
     for (let station = 15; station <= 24; station++) {
         const button = document.createElement("button");
         button.className = "station-choice-option";
         button.textContent = station;
 
-        const selectedAssignment = scheduleAssignments.find(item =>
-            item.work_date === workDate &&
-            item.station === station
-        );
+        const selectedAssignment = stationAssignments.get(station);
 
         if (selectedAssignment) {
             button.style.opacity = "0.45";
@@ -618,19 +563,12 @@ function openStationChoiceModal(worker, workDate, currentAssignment = null) {
         }
 
         button.onclick = async () => {
-            const selectedAssignment = scheduleAssignments.find(item =>
-                item.work_date === workDate &&
-                item.station === station
-            );
+            const selectedAssignment = stationAssignments.get(station);
 
             if (selectedAssignment) {
                 const oldWorkerId = selectedAssignment.worker_id;
                 const oldWorkerName = selectedAssignment.worker_name;
-
-                const workerAssignment = scheduleAssignments.find(item =>
-                    item.work_date === workDate &&
-                    item.worker_id === worker.id
-                );
+                const workerAssignment = workerAssignments.get(Number(worker.id));
 
                 changingStations.add(`${workDate}_${station}`);
 
@@ -681,8 +619,7 @@ function openStationChoiceModal(worker, workDate, currentAssignment = null) {
 
             modal.classList.add("hidden");
             clearButton.style.display = "";
-            renderSchedule();
-            prepareShareInBackground();
+            markScheduleChanged();
         };
 
         list.appendChild(button);
@@ -721,8 +658,7 @@ function openStationChoiceModal(worker, workDate, currentAssignment = null) {
 
             modal.classList.add("hidden");
             clearButton.style.display = "";
-            renderSchedule();
-            prepareShareInBackground();
+            markScheduleChanged();
         };
     }
 
@@ -751,16 +687,10 @@ function getLunchForWorker(workerId, shift) {
         return null;
     }
 
-    const pairNumber = setting.pair_number;
-    const pairSettings = lunchSettings.find(item =>
-        item.shift === shift &&
-        item.pair_number === pairNumber
-    );
-
     return {
-        pairNumber,
-        startTime: pairSettings?.start_time
-            ? String(pairSettings.start_time).slice(0, 5)
+        pairNumber: setting.pair_number,
+        startTime: setting.start_time
+            ? String(setting.start_time).slice(0, 5)
             : null
     };
 }
@@ -804,7 +734,7 @@ function openDayOffModal(worker, workDate) {
 
         modal.classList.add("hidden");
         clearButton.style.display = "";
-        renderSchedule();
+        markScheduleChanged();
     };
 
     list.appendChild(cancelDayOffButton);
@@ -832,6 +762,25 @@ function renderSchedule() {
 
     body.innerHTML = "";
 
+    const weekStart = getWeekStart();
+    const weekDates = Array.from({ length: 7 }, (_, dayOffset) => {
+        const date = new Date(weekStart);
+        date.setDate(date.getDate() + dayOffset);
+        return formatDate(date);
+    });
+
+    const dayOffKeys = new Set(
+        workerDaysOff.map(dayOff =>
+            `${dayOff.worker_id}_${String(dayOff.work_date).slice(0, 10)}`
+        )
+    );
+
+    const reserveKeys = new Set(
+        scheduleReserves.map(reserve =>
+            `${reserve.worker_id}_${String(reserve.work_date).slice(0, 10)}`
+        )
+    );
+
     const assignmentsByWorkerDate = new Map();
 
     scheduleAssignments.forEach(assignment => {
@@ -840,6 +789,12 @@ function renderSchedule() {
             assignment
         );
     });
+
+    const lunchSettingsMap = new Map(
+        lunchSettings.map(setting =>
+            [`${setting.shift}_${setting.pair_number}`, setting]
+        )
+    );
 
     [...workers].sort((a, b) => Number(a.is_reserve) - Number(b.is_reserve)).forEach(worker => {
         const row = document.createElement("tr");
@@ -850,25 +805,16 @@ function renderSchedule() {
         row.appendChild(name);
 
         for (let dayOffset = 0; dayOffset < 7; dayOffset++) {
-            const date = new Date(getWeekStart());
-            date.setDate(date.getDate() + dayOffset);
-
-            const workDate = formatDate(date);
+            const workDate = weekDates[dayOffset];
             const assignment = assignmentsByWorkerDate.get(
                 `${worker.id}_${workDate}`
             );
 
             const cell = document.createElement("td");
 
-            const isDayOff = workerDaysOff.some(dayOff =>
-                Number(dayOff.worker_id) === Number(worker.id) &&
-                String(dayOff.work_date).slice(0, 10) === workDate
-            );
-
-            const isReserve = scheduleReserves.some(reserve =>
-            Number(reserve.worker_id) === Number(worker.id) &&
-            String(reserve.work_date).slice(0, 10) === workDate
-        );
+            const workerDateKey = `${worker.id}_${workDate}`;
+            const isDayOff = dayOffKeys.has(workerDateKey);
+            const isReserve = reserveKeys.has(workerDateKey);
 
         if (isDayOff) {
                 cell.textContent = "";
@@ -893,8 +839,7 @@ function renderSchedule() {
                 }
 
                 await loadScheduleAssignments();
-                renderSchedule();
-                prepareShareInBackground();
+                markScheduleChanged();
             };
         } else if (assignment) {
                 const station = document.createElement("div");
@@ -924,10 +869,9 @@ function renderSchedule() {
         const lunchInfo = getLunchForWorker(worker.id, scheduleShift);
 
         if (lunchInfo) {
-            const setting = lunchSettings.find(item =>
-                item.shift === scheduleShift &&
-                item.pair_number === lunchInfo.pairNumber
-            );
+            const setting = lunchSettingsMap.get(
+                    `${scheduleShift}_${lunchInfo.pairNumber}`
+                );
 
             if (setting) {
                 const [hour, minute] = String(setting.start_time)
@@ -962,6 +906,7 @@ function renderSchedule() {
 
 
 let weekOffset = 0;
+let weekNavigationVersion = 0;
 
 function getWeekStart(offset = weekOffset) {
     const date = new Date();
@@ -1083,30 +1028,54 @@ async function loadScheduleWorkers() {
 }
 
 async function loadScheduleDays() {
-    const weekStart = formatDate(getWeekStart());
-    const response = await fetch(`/api/schedule/days?week_start=${weekStart}`);
+    const requestWeek = formatDate(getWeekStart());
+
+    const response = await fetch(
+        `/api/schedule/days?week_start=${requestWeek}`
+    );
 
     if (!response.ok) {
+        if (formatDate(getWeekStart()) !== requestWeek) {
+            return;
+        }
+
         alert("Не вдалося завантажити дні розкладу");
         scheduleDays = [];
         return;
     }
 
     const data = await response.json();
+
+    if (formatDate(getWeekStart()) !== requestWeek) {
+        return;
+    }
+
     scheduleDays = data.days;
 }
 
 
 async function loadScheduleShift() {
-    const weekStart = formatDate(getWeekStart());
-    const response = await fetch(`/api/schedule/shift?week_start=${weekStart}`);
+    const requestWeek = formatDate(getWeekStart());
+
+    const response = await fetch(
+        `/api/schedule/shift?week_start=${requestWeek}`
+    );
 
     if (!response.ok) {
+        if (formatDate(getWeekStart()) !== requestWeek) {
+            return;
+        }
+
         scheduleShift = null;
         return;
     }
 
     const data = await response.json();
+
+    if (formatDate(getWeekStart()) !== requestWeek) {
+        return;
+    }
+
     scheduleShift = data.shift;
 }
 
@@ -1114,12 +1083,14 @@ async function showScheduleScreen() {
     const screen = document.getElementById("scheduleScreen");
 
     if (!scheduleLoaded) {
-        await loadScheduleWorkers();
-        await loadScheduleDays();
-        await loadScheduleShift();
-        await loadScheduleAssignments();
-        await loadWorkerDaysOff();
-        await loadLunchSettings();
+        await Promise.all([
+            loadScheduleWorkers(),
+            loadScheduleDays(),
+            loadScheduleShift(),
+            loadScheduleAssignments(),
+            loadWorkerDaysOff(),
+            loadLunchSettings()
+        ]);
 
         scheduleLoaded = true;
 
@@ -1153,7 +1124,8 @@ async function exportScheduleImage(mode) {
 
             await processExportBlob(
                 cachedScheduleImageBlob,
-                mode
+                mode,
+                currentWeek
             );
             return;
         }
@@ -1240,7 +1212,7 @@ async function exportScheduleImage(mode) {
             return;
         }
 
-        const generatedWeek = formatDate(getWeekStart());
+        const generatedWeek = currentWeek;
         cachedScheduleImageBlob = blob;
         cachedScheduleImageWeek = generatedWeek;
 
@@ -1249,7 +1221,7 @@ async function exportScheduleImage(mode) {
             size: blob.size
         });
 
-        await processExportBlob(blob, mode);
+        await processExportBlob(blob, mode, currentWeek);
 
         } finally {
                 exportImageInProgress = false;
@@ -1273,7 +1245,13 @@ function invalidateScheduleImageCache() {
     updateShareButtonState();
 }
 
-async function processExportBlob(blob, mode) {
+function markScheduleChanged() {
+    invalidateScheduleImageCache();
+    renderSchedule();
+    prepareShareInBackground();
+}
+
+async function processExportBlob(blob, mode, exportWeek) {
     if (!blob) {
         alert("Не вдалося створити зображення");
         return;
@@ -1317,8 +1295,6 @@ async function processExportBlob(blob, mode) {
     }
 
     if (mode === "prepare-share") {
-        const tg = window.Telegram?.WebApp;
-        if (!tg?.shareMessage) return;
 
         try {
             if (document.visibilityState === "hidden") {
@@ -1330,7 +1306,7 @@ async function processExportBlob(blob, mode) {
                 method: "POST",
                 headers: {
                     "Content-Type": "image/jpeg",
-                    "X-Telegram-Init-Data": tg.initData || ""
+                    "X-Telegram-Init-Data": window.Telegram?.WebApp?.initData || ""
                 },
                 body: blob
             });
@@ -1339,7 +1315,7 @@ async function processExportBlob(blob, mode) {
 
             const data = await response.json();
             preparedShareMessageId = data.prepared_message_id || null;
-            preparedShareWeek = formatDate(getWeekStart());
+            preparedShareWeek = exportWeek;
 
             console.log(
                 "SHARE PREPARED:",
@@ -1399,18 +1375,6 @@ function prepareShareInBackground() {
     return sharePreparationPromise;
 }
 
-async function waitForPreparedShareMessage() {
-    const currentWeek = formatDate(getWeekStart());
-
-    if (preparedShareMessageId && preparedShareWeek === currentWeek) {
-        return preparedShareMessageId;
-    }
-
-    preparedShareMessageId = null;
-    preparedShareWeek = null;
-
-    return await prepareShareInBackground();
-}
 
 function updateExportButtonState() {
     const saveScheduleImageButton =
@@ -1467,6 +1431,34 @@ function updateExportButtonState() {
 
 function updateShareButtonState() {
     updateExportButtonState();
+}
+
+async function changeScheduleWeek(offset) {
+    const navigationVersion = ++weekNavigationVersion;
+
+    weekOffset += offset;
+    updateWeek();
+
+    await Promise.all([
+        loadScheduleDays(),
+        loadScheduleShift(),
+        loadScheduleAssignments(),
+        loadWorkerDaysOff(),
+        loadLunchSettings()
+    ]);
+
+    if (navigationVersion !== weekNavigationVersion) {
+        return;
+    }
+
+    lunchScreenLoaded = false;
+    markScheduleChanged();
+
+    await new Promise(resolve =>
+        requestAnimationFrame(() =>
+            requestAnimationFrame(resolve)
+        )
+    );
 }
 
 function bindScheduleButtons() {
@@ -1580,35 +1572,15 @@ function bindScheduleButtons() {
         }
     };
 
-    document.getElementById("prevWeek").onclick = async () => {
-        invalidateScheduleImageCache();
-        weekOffset--;
-        updateWeek();
-        await loadScheduleDays();
-    await loadScheduleShift();
-    await loadScheduleAssignments();
-        await loadWorkerDaysOff();
-        await loadLunchSettings();
-        renderSchedule();
-        await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-        prepareShareInBackground();
-    };
+    document.getElementById("prevWeek").onclick = () =>
+        changeScheduleWeek(-1);
 
-    document.getElementById("nextWeek").onclick = async () => {
-        invalidateScheduleImageCache();
-        weekOffset++;
-        updateWeek();
-        await loadScheduleDays();
-    await loadScheduleShift();
-    await loadScheduleAssignments();
-        await loadWorkerDaysOff();
-        await loadLunchSettings();
-        renderSchedule();
-        await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-        prepareShareInBackground();
-    };
+    document.getElementById("nextWeek").onclick = () =>
+        changeScheduleWeek(1);
+
     document.getElementById("generateScheduleButton").onclick = async () => {
         const weekStart = formatDate(getWeekStart());
+        const generationNavigationVersion = weekNavigationVersion;
 
         const settingsResponse = await fetch("/api/schedule/settings");
 
@@ -1656,7 +1628,11 @@ function bindScheduleButtons() {
             }
         }
 
-        invalidateScheduleImageCache();
+
+
+        if (generationNavigationVersion !== weekNavigationVersion) {
+            return;
+        }
 
         const response = await fetch("/api/schedule/generate", {
             method: "POST",
@@ -1674,11 +1650,24 @@ function bindScheduleButtons() {
             return;
         }
 
-        await loadScheduleShift();
-        await loadScheduleAssignments();
-        renderSchedule();
-        await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)));
-        prepareShareInBackground();
+        if (generationNavigationVersion !== weekNavigationVersion) {
+            return;
+        }
+
+        await Promise.all([
+            loadScheduleShift(),
+            loadScheduleAssignments()
+        ]);
+
+        if (generationNavigationVersion !== weekNavigationVersion) {
+            return;
+        }
+
+        markScheduleChanged();
+
+        await new Promise(resolve =>
+            requestAnimationFrame(() => requestAnimationFrame(resolve))
+        );
     };
 }
 
@@ -1714,26 +1703,46 @@ adminAccessPromise.then(authorized => {
 async function loadLunchSettings() {
     const weekStart = formatDate(getWeekStart());
 
-    if (lunchSettingsPromise) {
+    if (
+        lunchSettingsPromise &&
+        lunchSettingsPromiseWeek === weekStart
+    ) {
         return lunchSettingsPromise;
     }
 
-    lunchSettingsPromise = fetch(`/api/lunch/settings?week_start=${weekStart}`)
+    const requestWeek = weekStart;
+
+    const requestPromise = fetch(
+        `/api/lunch/settings?week_start=${requestWeek}`
+    )
         .then(async response => {
             if (!response.ok) {
                 throw new Error("Не вдалося завантажити налаштування обідів");
             }
 
-            lunchSettings = await response.json();
-            return lunchSettings;
+            const settings = await response.json();
+
+            if (formatDate(getWeekStart()) === requestWeek) {
+                lunchSettings = settings;
+            }
+
+            return settings;
         })
         .catch(error => {
-            lunchSettingsPromise = null;
             alert(error.message);
             return [];
+        })
+        .finally(() => {
+            if (lunchSettingsPromise === requestPromise) {
+                lunchSettingsPromise = null;
+                lunchSettingsPromiseWeek = null;
+            }
         });
 
-    return lunchSettingsPromise;
+    lunchSettingsPromise = requestPromise;
+    lunchSettingsPromiseWeek = requestWeek;
+
+    return requestPromise;
 }
 
 async function showLunchScreen() {
@@ -1744,10 +1753,13 @@ async function showLunchScreen() {
     }
 
     if (!workers.length) {
-        await loadScheduleWorkers();
+        await Promise.all([
+            loadScheduleWorkers(),
+            loadLunchSettings()
+        ]);
+    } else {
+        await loadLunchSettings();
     }
-
-    await loadLunchSettings();
 
     const pairs = Array.from({ length: 5 }, (_, index) => `
         <div class="lunch-pair">
@@ -2144,6 +2156,7 @@ document.getElementById("clearScheduleButton").onclick = async () => {
     if (!confirmed) return;
 
     const weekStart = formatDate(getWeekStart());
+    const clearNavigationVersion = weekNavigationVersion;
 
     const response = await fetch("/api/schedule/clear", {
         method: "DELETE",
@@ -2161,9 +2174,21 @@ document.getElementById("clearScheduleButton").onclick = async () => {
         return;
     }
 
-    await loadScheduleShift();
-    await loadScheduleAssignments();
-    renderSchedule();
+    if (clearNavigationVersion !== weekNavigationVersion) {
+        return;
+    }
+
+    await Promise.all([
+        loadScheduleShift(),
+        loadScheduleAssignments()
+    ]);
+
+    if (clearNavigationVersion !== weekNavigationVersion) {
+        return;
+    }
+
+    markScheduleChanged();
+
     await new Promise(resolve =>
         requestAnimationFrame(() =>
             requestAnimationFrame(resolve)

@@ -1,35 +1,38 @@
+let editingWorkerId = null;
+
 async function showWorkersScreen() {
     const screen = document.getElementById("workersScreen");
 
-    if (!workersScreenLoaded) {
-        screen.innerHTML = `
-            <section class="card workers-card">
-                <div class="card-title">👥 Працівники</div>
-                <div id="workersList"></div>
-                <button id="addWorkerButton" class="add-worker-button">
-                    ＋ Додати працівника
-                </button>
+    screen.innerHTML = `
+        <section class="card workers-card">
+            <div class="card-title">👥 Працівники</div>
+            <div id="workersList"></div>
 
-                <div id="workerModal" class="worker-modal hidden">
-                    <div class="worker-modal-box">
-                        <div class="worker-modal-title">Новий працівник</div>
-                        <input id="workerNameInput" type="text" placeholder="Імʼя працівника">
-                        <div class="worker-modal-buttons">
-                            <button id="cancelWorkerButton">Скасувати</button>
-                            <button id="saveWorkerButton">Додати</button>
-                        </div>
+            <button id="addWorkerButton" class="add-worker-button">
+                ＋ Додати працівника
+            </button>
+
+            <div id="workerModal" class="worker-modal hidden">
+                <div class="worker-modal-box">
+                    <div class="worker-modal-title">Новий працівник</div>
+
+                    <input
+                        id="workerNameInput"
+                        type="text"
+                        placeholder="Імʼя працівника"
+                    >
+
+                    <div class="worker-modal-buttons">
+                        <button id="cancelWorkerButton">Скасувати</button>
+                        <button id="saveWorkerButton">Додати</button>
                     </div>
                 </div>
-            </section>
-        `;
+            </div>
+        </section>
+    `;
 
-        await loadWorkers();
-        workersScreenLoaded = true;
-        setupWorkerButtons();
-        return;
-    }
-
-    renderWorkers(workers);
+    setupWorkerButtons();
+    await loadWorkers();
 }
 
 async function loadWorkers() {
@@ -48,19 +51,45 @@ async function loadWorkers() {
 function renderWorkers(workers) {
     const list = document.getElementById("workersList");
     list.innerHTML = "";
+
     workers.forEach(worker => {
         const row = document.createElement("div");
         row.className = "worker-row";
 
-        row.innerHTML = `
-            <span class="worker-name">${worker.name}${worker.is_reserve ? ' <small>🟢 Резерв</small>' : ""}</span>
-            <div class="worker-actions">
-                <button class="edit-worker-btn">✏️</button><button onclick="toggleReserve(${worker.id}, ${worker.is_reserve})">${worker.is_reserve ? "🟢" : "🛡️"}</button>
-                <button onclick="deleteWorker(${worker.id})">🗑</button>
-            </div>
-        `;
+        const name = document.createElement("span");
+        name.className = "worker-name";
+        name.textContent = worker.name;
 
-        row.querySelector(".edit-worker-btn").onclick = () => editWorker(worker.id, worker.name);
+        if (worker.is_reserve) {
+            const reserveLabel = document.createElement("small");
+            reserveLabel.textContent = " 🟢 Резерв";
+            name.appendChild(reserveLabel);
+        }
+
+        const actions = document.createElement("div");
+        actions.className = "worker-actions";
+
+        const editButton = document.createElement("button");
+        editButton.className = "edit-worker-btn";
+        editButton.textContent = "✏️";
+        editButton.addEventListener("click", () => {
+            editWorker(worker.id, worker.name);
+        });
+
+        const reserveButton = document.createElement("button");
+        reserveButton.textContent = worker.is_reserve ? "🟢" : "🛡️";
+        reserveButton.addEventListener("click", () => {
+            toggleReserve(worker.id, worker.is_reserve);
+        });
+
+        const deleteButton = document.createElement("button");
+        deleteButton.textContent = "🗑";
+        deleteButton.addEventListener("click", () => {
+            deleteWorker(worker.id);
+        });
+
+        actions.append(editButton, reserveButton, deleteButton);
+        row.append(name, actions);
         list.appendChild(row);
     });
 }
@@ -70,34 +99,42 @@ function setupWorkerButtons() {
     const saveButton = document.getElementById("saveWorkerButton");
     const modal = document.getElementById("workerModal");
     const input = document.getElementById("workerNameInput");
+    const title = document.querySelector(".worker-modal-title");
 
-    addButton.onclick = () => {
+    addButton.addEventListener("click", () => {
+        editingWorkerId = null;
         modal.classList.remove("hidden");
         input.value = "";
         input.focus();
-        saveButton.onclick = addWorker;
-    };
+        title.textContent = "Новий працівник";
+        saveButton.textContent = "Додати";
+    });
 
-    modal.onclick = (event) => {
+    modal.addEventListener("click", (event) => {
         if (event.target === modal) {
+            editingWorkerId = null;
             modal.classList.add("hidden");
         }
-    };
-    cancelButton.onclick = () => {
-        modal.classList.add("hidden");
-    };
+    });
 
-    saveButton.onclick = addWorker;
-    input.onkeydown = (event) => {
+    cancelButton.addEventListener("click", () => {
+        editingWorkerId = null;
+        modal.classList.add("hidden");
+    });
+
+    saveButton.addEventListener("click", saveWorker);
+
+    input.addEventListener("keydown", (event) => {
         if (event.key === "Enter") {
             saveButton.click();
         }
-    };
+    });
 }
 
-async function addWorker() {
+async function saveWorker() {
     const modal = document.getElementById("workerModal");
     const input = document.getElementById("workerNameInput");
+    const saveButton = document.getElementById("saveWorkerButton");
     const name = input.value.trim();
 
     if (!name) {
@@ -105,63 +142,49 @@ async function addWorker() {
         return;
     }
 
-    const response = await fetch("/api/workers", {
-        method: "POST",
+    const editing = editingWorkerId !== null;
+    const url = editing
+        ? `/api/workers/${editingWorkerId}`
+        : "/api/workers";
+
+    const response = await fetch(url, {
+        method: editing ? "PUT" : "POST",
         headers: {
             "Content-Type": "application/json"
         },
-        body: JSON.stringify({
-            name: name
-        })
+        body: JSON.stringify({ name })
     });
 
     if (!response.ok) {
-        alert("Не вдалося додати працівника");
+        alert(
+            editing
+                ? "Не вдалося змінити імʼя"
+                : "Не вдалося додати працівника"
+        );
         return;
     }
 
+    editingWorkerId = null;
     modal.classList.add("hidden");
     input.value = "";
+    saveButton.textContent = "Додати";
+
     await loadWorkers();
 }
 
-async function editWorker(id, oldName) {
+function editWorker(id, oldName) {
     const modal = document.getElementById("workerModal");
     const input = document.getElementById("workerNameInput");
     const saveButton = document.getElementById("saveWorkerButton");
+    const title = document.querySelector(".worker-modal-title");
 
+    editingWorkerId = id;
     modal.classList.remove("hidden");
     input.value = oldName;
     input.focus();
     input.select();
-
-    saveButton.onclick = async () => {
-        const name = input.value.trim();
-
-        if (!name) {
-            input.focus();
-            return;
-        }
-
-        const response = await fetch(`/api/workers/${id}`, {
-            method: "PUT",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-                name: name
-            })
-        });
-
-        if (!response.ok) {
-            alert("Не вдалося змінити імʼя");
-            return;
-        }
-
-        modal.classList.add("hidden");
-        input.value = "";
-        await loadWorkers();
-    };
+    title.textContent = "Редагувати працівника";
+    saveButton.textContent = "Зберегти";
 }
 
 async function deleteWorker(id) {

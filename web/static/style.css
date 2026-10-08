@@ -626,9 +626,6 @@ main {
     font-size: 15px;
 }
 
-main {
-    padding-bottom: 90px;
-}
 
 .workers-card {
     margin-bottom: 20px;
@@ -657,8 +654,6 @@ main {
 
 /* Compact Mini App */
 .header {
-    padding-top: calc(8px + env(safe-area-inset-top));
-    padding-bottom: 8px;
     padding-left: 12px;
     padding-right: 12px;
 }
@@ -791,21 +786,7 @@ main {
     opacity: 0.7;
 }
 
-.station.station-changing {
-    animation: stationChanging 0.45s ease;
-}
 
-@keyframes stationChanging {
-    0% {
-        transform: scale(1);
-    }
-    45% {
-        transform: scale(1.16);
-    }
-    100% {
-        transform: scale(1);
-    }
-}
 
 .station.station-changing {
     animation: stationChanging 0.55s ease;
@@ -896,18 +877,14 @@ main {
 .lunch-pairs {
     display: flex;
     flex-direction: column;
-    gap: 8px;
     margin-bottom: 10px;
 }
 
 .lunch-pair {
     display: grid;
-    grid-template-columns: 54px 1fr 1fr;
     align-items: center;
     gap: 6px;
-    padding: 8px;
     background: var(--bg);
-    border-radius: 12px;
 }
 
 .lunch-pair strong {
@@ -1102,7 +1079,6 @@ main {
     height: 100%;
 }
 
-#weekTitle { font-weight: 700; }
 
 #weekTitle { font-size: 18px; font-weight: 700; }
 
