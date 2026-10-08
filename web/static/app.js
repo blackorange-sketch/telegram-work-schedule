@@ -1187,7 +1187,8 @@ async function exportScheduleImage(mode) {
 
     ctx.fillStyle = "#111827";
     ctx.font = "bold 24px sans-serif";
-    ctx.fillText("Schedule", padding, 38);
+    const groupNumber = selectedExotecGroup.replace("exotec_", "");
+    ctx.fillText(`Exotec ${groupNumber} — Schedule`, padding, 38);
 
     const weekTitle = document.getElementById("weekTitle");
     ctx.font = "16px sans-serif";
