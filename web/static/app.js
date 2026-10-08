@@ -1139,7 +1139,29 @@ async function exportScheduleImage(mode) {
         return;
     }
 
-    const rows = [...table.querySelectorAll("tr")];
+    const currentWeek = formatDate(getWeekStart());
+
+        if (
+            cachedScheduleImageBlob &&
+            cachedScheduleImageWeek === currentWeek
+        ) {
+            appLogEvent("SCHEDULE IMAGE CACHE HIT", {
+                mode,
+                week: currentWeek,
+                size: cachedScheduleImageBlob.size
+            });
+
+            await processExportBlob(
+                cachedScheduleImageBlob,
+                mode
+            );
+            return;
+        }
+
+        exportImageInProgress = true;
+        updateExportButtonState();
+
+        const rows = [...table.querySelectorAll("tr")];
     const scale = 2;
     const padding = 40;
     const rowHeight = 54;
@@ -1218,128 +1240,125 @@ async function exportScheduleImage(mode) {
             return;
         }
 
-        const weekStart = getWeekStart();
-        const weekEnd = new Date(weekStart);
-        weekEnd.setDate(weekEnd.getDate() + 6);
-        const fileName = `${formatDate(weekStart)}_${formatDate(weekEnd).slice(5)}.jpg`;
+        const generatedWeek = formatDate(getWeekStart());
+        cachedScheduleImageBlob = blob;
+        cachedScheduleImageWeek = generatedWeek;
 
-        if (mode === "save") {
-            const uploadResponse = await fetch("/api/export/schedule", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "image/jpeg"
-                },
-                body: blob
-            });
+        appLogEvent("SCHEDULE IMAGE CACHED", {
+            week: generatedWeek,
+            size: blob.size
+        });
 
-            if (!uploadResponse.ok) {
-                alert("Не вдалося підготувати файл");
-                return;
-            }
+        await processExportBlob(blob, mode);
 
-            const exportData = await uploadResponse.json();
-            const fileUrl = `${window.location.origin}${exportData.url}`;
-
-            if (window.Telegram?.WebApp?.downloadFile) {
-                window.Telegram.WebApp.downloadFile(
-                    {
-                        url: fileUrl,
-                        file_name: fileName
-                    },
-                    () => {}
-                );
-                return;
-            }
-
-            alert("Збереження файлів не підтримується цією версією Telegram");
-            return;
-        }
-
-        if (mode === "prepare-share") {
-            const tg = window.Telegram?.WebApp;
-            if (!tg?.shareMessage) return;
-            try {
-                if (document.visibilityState === "hidden") {
-                    appLogEvent("SHARE PREPARE FETCH BLOCKED: APP HIDDEN");
-                    return;
-                }
-
-                const response = await fetch("/api/export/share-prepared", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "image/jpeg",
-                        "X-Telegram-Init-Data": tg.initData || ""
-                    },
-                    body: blob
-                });
-                if (!response.ok) return;
-                const data = await response.json();
-                preparedShareMessageId = data.prepared_message_id || null;
-                preparedShareWeek = formatDate(getWeekStart());
-                console.log("SHARE PREPARED:", preparedShareMessageId, "WEEK:", preparedShareWeek);
-                updateShareButtonState();
-            } catch (error) {
-                preparedShareMessageId = null;
-                preparedShareWeek = null;
-                console.log("SHARE PREPARE ERROR:", error);
-                updateShareButtonState();
-            }
-            return;
-        }
-
-
-        const file = new File([blob], fileName, { type: "image/jpeg" });
-
-        if (mode === "share") {
-            const tg = window.Telegram?.WebApp;
-
-            if (!tg?.shareMessage) {
-                alert("Поширення через Telegram не підтримується");
-                return;
-            }
-
-            try {
-                const response = await fetch("/api/export/share-prepared", {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "image/jpeg",
-                        "X-Telegram-Init-Data": tg.initData || ""
-                    },
-                    body: blob
-                });
-
-                if (!response.ok) {
-                    const error = await response.json().catch(() => ({}));
-                    alert(error.detail || "Не вдалося підготувати поширення");
-                    return;
-                }
-
-                const data = await response.json();
-
-        tg.shareMessage(
-            data.prepared_message_id,
-            (sent) => {
-                console.log("SHARE CALLBACK:", sent);
-                alert("Share callback: " + sent);
-            }
-        );
-            } catch (error) {
-                alert("Помилка підготовки поширення");
-            }
-
-            return;
-        }
-
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = fileName;
-            URL.revokeObjectURL(url);
-            } finally {
+        } finally {
+                exportImageInProgress = false;
+                updateExportButtonState();
                 resolve();
             }
         }, "image/jpeg", 0.95);
     });
+}
+
+let cachedScheduleImageBlob = null;
+let cachedScheduleImageWeek = null;
+let exportImageInProgress = false;
+
+function invalidateScheduleImageCache() {
+    cachedScheduleImageBlob = null;
+    cachedScheduleImageWeek = null;
+    preparedShareMessageId = null;
+    preparedShareWeek = null;
+
+    updateShareButtonState();
+}
+
+async function processExportBlob(blob, mode) {
+    if (!blob) {
+        alert("Не вдалося створити зображення");
+        return;
+    }
+
+    const weekStart = getWeekStart();
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekEnd.getDate() + 6);
+    const fileName = `${formatDate(weekStart)}_${formatDate(weekEnd).slice(5)}.jpg`;
+
+    if (mode === "save") {
+        const uploadResponse = await fetch("/api/export/schedule", {
+            method: "POST",
+            headers: {
+                "Content-Type": "image/jpeg"
+            },
+            body: blob
+        });
+
+        if (!uploadResponse.ok) {
+            alert("Не вдалося підготувати файл");
+            return;
+        }
+
+        const exportData = await uploadResponse.json();
+        const fileUrl = `${window.location.origin}${exportData.url}`;
+
+        if (window.Telegram?.WebApp?.downloadFile) {
+            window.Telegram.WebApp.downloadFile(
+                {
+                    url: fileUrl,
+                    file_name: fileName
+                },
+                () => {}
+            );
+            return;
+        }
+
+        alert("Збереження файлів не підтримується цією версією Telegram");
+        return;
+    }
+
+    if (mode === "prepare-share") {
+        const tg = window.Telegram?.WebApp;
+        if (!tg?.shareMessage) return;
+
+        try {
+            if (document.visibilityState === "hidden") {
+                appLogEvent("SHARE PREPARE FETCH BLOCKED: APP HIDDEN");
+                return;
+            }
+
+            const response = await fetch("/api/export/share-prepared", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "image/jpeg",
+                    "X-Telegram-Init-Data": tg.initData || ""
+                },
+                body: blob
+            });
+
+            if (!response.ok) return;
+
+            const data = await response.json();
+            preparedShareMessageId = data.prepared_message_id || null;
+            preparedShareWeek = formatDate(getWeekStart());
+
+            console.log(
+                "SHARE PREPARED:",
+                preparedShareMessageId,
+                "WEEK:",
+                preparedShareWeek
+            );
+
+            updateShareButtonState();
+        } catch (error) {
+            preparedShareMessageId = null;
+            preparedShareWeek = null;
+
+            console.log("SHARE PREPARE ERROR:", error);
+            updateShareButtonState();
+        }
+
+        return;
+    }
 }
 
 let sharePreparationPromise = null;
@@ -1392,36 +1411,61 @@ async function waitForPreparedShareMessage() {
     return await prepareShareInBackground();
 }
 
-function updateShareButtonState() {
+function updateExportButtonState() {
+    const saveScheduleImageButton =
+        document.getElementById("saveScheduleImageButton");
+
     const shareScheduleImageButton =
         document.getElementById("shareScheduleImageButton");
 
-    if (!shareScheduleImageButton) {
+    if (!saveScheduleImageButton || !shareScheduleImageButton) {
         return;
     }
 
-    const ready =
+    const currentWeek = formatDate(getWeekStart());
+
+    const imageReady =
+        !!cachedScheduleImageBlob &&
+        cachedScheduleImageWeek === currentWeek;
+
+    const shareReady =
         !!preparedShareMessageId &&
-        preparedShareWeek === formatDate(getWeekStart()) &&
+        preparedShareWeek === currentWeek &&
         !shareMessageInProgress;
 
-    shareScheduleImageButton.classList.toggle("share-disabled", !ready);
+    const preparing =
+        exportImageInProgress ||
+        !!sharePreparationPromise ||
+        shareMessageInProgress;
 
-    const computedStyle = window.getComputedStyle(shareScheduleImageButton);
+    const ready =
+        imageReady &&
+        shareReady &&
+        !preparing;
 
-    appLogEvent("SHARE BUTTON STATE", {
+    saveScheduleImageButton.classList.toggle(
+        "export-disabled",
+        !ready
+    );
+
+    shareScheduleImageButton.classList.toggle(
+        "export-disabled",
+        !ready
+    );
+
+    appLogEvent("EXPORT BUTTON STATE", {
         ready,
-        hasMessageId: !!preparedShareMessageId,
-        week: preparedShareWeek,
-        currentWeek: formatDate(getWeekStart()),
-        inProgress: shareMessageInProgress,
-        className: shareScheduleImageButton.className,
-        disabled: shareScheduleImageButton.disabled,
-        opacity: computedStyle.opacity,
-        pointerEvents: computedStyle.pointerEvents,
-        backgroundColor: computedStyle.backgroundColor,
-        color: computedStyle.color
+        imageReady,
+        shareReady,
+        preparing,
+        week: currentWeek,
+        hasImage: !!cachedScheduleImageBlob,
+        hasMessageId: !!preparedShareMessageId
     });
+}
+
+function updateShareButtonState() {
+    updateExportButtonState();
 }
 
 function bindScheduleButtons() {
@@ -1430,6 +1474,7 @@ function bindScheduleButtons() {
     document.getElementById("exportScheduleButton").onclick = () => {
         exportModal.classList.remove("hidden");
         appLogEvent("EXPORT OPENED");
+        updateExportButtonState();
         prepareShareInBackground();
     };
 
@@ -1535,9 +1580,7 @@ function bindScheduleButtons() {
     };
 
     document.getElementById("prevWeek").onclick = async () => {
-        preparedShareMessageId = null;
-        preparedShareWeek = null;
-        updateShareButtonState();
+        invalidateScheduleImageCache();
         weekOffset--;
         updateWeek();
         await loadScheduleDays();
@@ -1551,9 +1594,7 @@ function bindScheduleButtons() {
     };
 
     document.getElementById("nextWeek").onclick = async () => {
-        preparedShareMessageId = null;
-        preparedShareWeek = null;
-        updateShareButtonState();
+        invalidateScheduleImageCache();
         weekOffset++;
         updateWeek();
         await loadScheduleDays();
@@ -1614,9 +1655,7 @@ function bindScheduleButtons() {
             }
         }
 
-        preparedShareMessageId = null;
-        preparedShareWeek = null;
-        updateShareButtonState();
+        invalidateScheduleImageCache();
 
         const response = await fetch("/api/schedule/generate", {
             method: "POST",
