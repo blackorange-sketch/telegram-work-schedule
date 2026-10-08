@@ -852,14 +852,8 @@ main {
 }
 
 .station-choice-option#shareScheduleImageButton {
-    background: var(--accent);
-    color: #fff;
-}
-
-.station-choice-option#shareScheduleImageButton.share-disabled {
     background: var(--bg);
     color: var(--text);
-    opacity: 0.45;
 }
 
 .station-choice-option.export-disabled {
