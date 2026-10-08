@@ -1429,6 +1429,8 @@ function bindScheduleButtons() {
 
     document.getElementById("exportScheduleButton").onclick = () => {
         exportModal.classList.remove("hidden");
+        appLogEvent("EXPORT OPENED");
+        prepareShareInBackground();
     };
 
     document.getElementById("saveScheduleImageButton").onclick = async () => {
