@@ -1382,3 +1382,109 @@ body.group-select-mode #groupSelectScreen {
         min-height: 36px;
     }
 }
+
+
+/* ===== Обіди: обідні групи бригади ===== */
+
+.lunch-card {
+    padding-bottom: 12px;
+}
+
+.lunch-card > .worker-team-tabs,
+.lunch-card > .lunch-team-info,
+.lunch-card > .lunch-groups,
+.lunch-card > .lunch-hint,
+.lunch-card > .lunch-shifts,
+.lunch-card > .lunch-add-group,
+.lunch-card > .add-worker-button {
+    margin-left: 12px;
+    margin-right: 12px;
+    width: calc(100% - 24px);
+}
+
+.lunch-team-info,
+.lunch-hint {
+    margin-bottom: 10px;
+    color: var(--secondary);
+    font-size: 13px;
+    line-height: 1.4;
+}
+
+.lunch-groups {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.lunch-group {
+    padding: 8px 10px;
+    background: var(--bg);
+    border-radius: 12px;
+}
+
+.lunch-group-head {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+}
+
+.lunch-group-time {
+    margin-left: auto;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+}
+
+.lunch-group-remove {
+    min-width: 36px;
+    min-height: 36px;
+    border: 0;
+    border-radius: 9px;
+    background: var(--card);
+    color: var(--text);
+    font-size: 15px;
+}
+
+.lunch-members {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.lunch-member-chip,
+.lunch-member-add {
+    max-width: 100%;
+    min-height: 36px;
+    padding: 6px 10px;
+    border: 0;
+    border-radius: 18px;
+    background: var(--card);
+    color: var(--text);
+    font-size: 13px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.lunch-member-chip span {
+    margin-left: 4px;
+    opacity: 0.5;
+}
+
+.lunch-member-add {
+    border: 1px dashed var(--border);
+    background: transparent;
+    color: var(--accent);
+    font-weight: 600;
+}
+
+.lunch-empty {
+    align-self: center;
+    color: var(--secondary);
+    font-size: 13px;
+}
+
+.lunch-add-group {
+    margin-bottom: 8px;
+}

@@ -15,7 +15,7 @@
 
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
-    <link rel="stylesheet" href="/static/style.css">
+    <link rel="stylesheet" href="/static/style.css?v=6">
     <style>
         .app {
             display: none;
@@ -87,6 +87,13 @@
             </button>
             <strong id="currentExotecGroupLabel">Exotec 2</strong>
         </div>
+
+        <div id="scheduleTeamTabs" class="worker-team-tabs" role="tablist" aria-label="Бригада">
+            <button type="button" data-schedule-team="A" class="worker-team-tab active">Бригада A</button>
+            <button type="button" data-schedule-team="B" class="worker-team-tab">Бригада B</button>
+            <button type="button" data-schedule-team="C" class="worker-team-tab">Бригада C</button>
+        </div>
+        <div id="scheduleTeamInfo" class="workers-team-label"></div>
 
 
         <section class="schedule-wrapper">
@@ -196,7 +203,7 @@
 
 
 
-<script src="/static/app.js?v=5"></script>
+<script src="/static/app.js?v=6"></script>
 
 </body>
 </html>

@@ -372,12 +372,14 @@ function getSelectedExotecStationNumbers() {
 let workers = [];
 let scheduleDays = [];
 let scheduleShift = null;
+let scheduleTeamSlots = null;
+let selectedScheduleTeam = "A";
 let scheduleAssignments = [];
 let scheduleReserves = [];
 let scheduleLoaded = false;
 let changingStations = new Set();
 let lunchScreenLoaded = false;
-let lunchSettings = [];
+let lunchSettings = null;
 let lunchSettingsPromise = null;
 let lunchSettingsPromiseWeek = null;
 let workerDaysOff = [];
@@ -559,8 +561,15 @@ function openStationChoiceModal(worker, workDate, currentAssignment = null) {
     const stationAssignments = new Map();
     const workerAssignments = new Map();
 
+    const modalTeam = String(worker.team_code).trim();
+
     for (const item of scheduleAssignments) {
         if (item.work_date !== workDate) {
+            continue;
+        }
+
+        // Станцію займає лише працівник тієї ж бригади (зміни).
+        if (String(item.team_code || getWorkerTeam(item.worker_id)).trim() !== modalTeam) {
             continue;
         }
 
@@ -626,7 +635,8 @@ function openStationChoiceModal(worker, workDate, currentAssignment = null) {
                     worker_id: worker.id,
                     worker_name: worker.name,
                     station: station,
-                    shift: scheduleShift
+                    shift: getTeamShift(modalTeam),
+                    team_code: modalTeam
                 };
 
                 const saved = await saveScheduleAssignment(
@@ -704,21 +714,49 @@ function openStationChoiceModal(worker, workDate, currentAssignment = null) {
     modal.classList.remove("hidden");
 }
 
-function getLunchForWorker(workerId, shift) {
-    const setting = lunchSettings.find(item =>
-        item.shift === shift &&
-        (item.worker1_id === workerId || item.worker2_id === workerId)
+function addMinutesToTime(time, minutes) {
+    const [hour, minute] = String(time).slice(0, 5).split(":").map(Number);
+    if (Number.isNaN(hour) || Number.isNaN(minute)) {
+        return null;
+    }
+    const total = (((hour * 60 + minute + minutes) % 1440) + 1440) % 1440;
+    return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
+}
+
+// Час обіду обідньої групи бригади: початок зміни + (N-1) × інтервал.
+function getLunchPairTime(teamCode, pairNumber) {
+    if (!lunchSettings) {
+        return null;
+    }
+    const slot = lunchSettings.team_slots
+        ? lunchSettings.team_slots[teamCode]
+        : null;
+    const start = slot ? lunchSettings.start_times[String(slot)] : null;
+    if (!start) {
+        return null;
+    }
+    const interval = lunchSettings.interval_minutes || 30;
+    return addMinutesToTime(start, (pairNumber - 1) * interval);
+}
+
+function getLunchForWorker(workerId) {
+    const team = getWorkerTeam(workerId);
+    if (!team || !lunchSettings || !lunchSettings.teams) {
+        return null;
+    }
+
+    const pairs = lunchSettings.teams[team] || [];
+    const index = pairs.findIndex(pair =>
+        pair.some(member => Number(member.id) === Number(workerId))
     );
 
-    if (!setting) {
+    if (index === -1) {
         return null;
     }
 
     return {
-        pairNumber: setting.pair_number,
-        startTime: setting.start_time
-            ? String(setting.start_time).slice(0, 5)
-            : null
+        pairNumber: index + 1,
+        time: getLunchPairTime(team, index + 1)
     };
 }
 
@@ -787,6 +825,7 @@ function openDayOffModal(worker, workDate) {
 function renderSchedule() {
     const body = document.getElementById("scheduleBody");
     updateScheduleDayHeaders();
+    updateScheduleTeamTabs();
 
     body.innerHTML = "";
 
@@ -818,13 +857,21 @@ function renderSchedule() {
         );
     });
 
-    const lunchSettingsMap = new Map(
-        lunchSettings.map(setting =>
-            [`${setting.shift}_${setting.pair_number}`, setting]
-        )
+    const teamWorkers = workers.filter(worker =>
+        String(worker.team_code).trim() === selectedScheduleTeam
     );
 
-    [...workers].sort((a, b) => Number(a.is_reserve) - Number(b.is_reserve)).forEach(worker => {
+    if (!teamWorkers.length) {
+        const row = document.createElement("tr");
+        const cell = document.createElement("td");
+        cell.colSpan = 9;
+        cell.className = "workers-empty";
+        cell.textContent = `У бригаді ${selectedScheduleTeam} ще немає працівників.`;
+        row.appendChild(cell);
+        body.appendChild(row);
+    }
+
+    [...teamWorkers].sort((a, b) => Number(a.is_reserve) - Number(b.is_reserve)).forEach(worker => {
         const row = document.createElement("tr");
 
         const name = document.createElement("td");
@@ -894,32 +941,8 @@ function renderSchedule() {
         const lunch = document.createElement("td");
         lunch.className = "lunch lunch-column";
 
-        const lunchInfo = getLunchForWorker(worker.id, scheduleShift);
-
-        if (lunchInfo) {
-            const setting = lunchSettingsMap.get(
-                    `${scheduleShift}_${lunchInfo.pairNumber}`
-                );
-
-            if (setting) {
-                const [hour, minute] = String(setting.start_time)
-                    .slice(0, 5)
-                    .split(":")
-                    .map(Number);
-
-                const totalMinutes =
-                    (hour * 60 + minute + (lunchInfo.pairNumber - 1) * 30) % 1440;
-
-                const lunchHour = String(Math.floor(totalMinutes / 60)).padStart(2, "0");
-                const lunchMinute = String(totalMinutes % 60).padStart(2, "0");
-
-                lunch.textContent = `${lunchHour}:${lunchMinute}`;
-            } else {
-                lunch.textContent = "—";
-            }
-        } else {
-            lunch.textContent = "—";
-        }
+        const lunchInfo = getLunchForWorker(worker.id);
+        lunch.textContent = lunchInfo && lunchInfo.time ? lunchInfo.time : "—";
 
         row.appendChild(lunch);
         body.appendChild(row);
@@ -1105,6 +1128,7 @@ async function loadScheduleShift() {
         }
 
         scheduleShift = null;
+        scheduleTeamSlots = null;
         return;
     }
 
@@ -1115,7 +1139,47 @@ async function loadScheduleShift() {
     }
 
     scheduleShift = data.shift;
+    scheduleTeamSlots = data.team_slots || null;
 }
+
+// Часовий слот (зміна 1/2/3), у якому бригада працює вибраного тижня.
+function getTeamShift(teamCode) {
+    if (!scheduleTeamSlots || !teamCode) {
+        return null;
+    }
+    return scheduleTeamSlots[String(teamCode).trim()] || null;
+}
+
+function getWorkerTeam(workerId) {
+    const worker = workers.find(item => Number(item.id) === Number(workerId));
+    return worker ? String(worker.team_code).trim() : null;
+}
+
+function updateScheduleTeamTabs() {
+    document.querySelectorAll("[data-schedule-team]").forEach(tab => {
+        const active = tab.dataset.scheduleTeam === selectedScheduleTeam;
+        tab.classList.toggle("active", active);
+        tab.setAttribute("aria-selected", active ? "true" : "false");
+    });
+
+    const info = document.getElementById("scheduleTeamInfo");
+    if (info) {
+        const shift = getTeamShift(selectedScheduleTeam);
+        info.textContent = shift
+            ? `Бригада ${selectedScheduleTeam} · зміна ${shift}`
+            : `Бригада ${selectedScheduleTeam} · ротацію змін не налаштовано`;
+    }
+}
+
+document.querySelectorAll("[data-schedule-team]").forEach(tab => {
+    tab.addEventListener("click", () => {
+        if (tab.dataset.scheduleTeam === selectedScheduleTeam) {
+            return;
+        }
+        selectedScheduleTeam = tab.dataset.scheduleTeam;
+        markScheduleChanged();
+    });
+});
 
 async function showScheduleScreen() {
     const screen = document.getElementById("scheduleScreen");
@@ -1189,8 +1253,15 @@ async function exportScheduleImage(mode) {
 
     ctx.fillStyle = "#111827";
     ctx.font = "bold 24px sans-serif";
-    const groupNumber = selectedExotecGroup.replace("exotec_", "");
-    ctx.fillText(`Exotec ${groupNumber} — Schedule`, padding, 38);
+    const groupLabel = document.getElementById("currentExotecGroupLabel");
+    const groupName = groupLabel ? groupLabel.textContent.trim() : selectedExotecGroup;
+    const teamShift = getTeamShift(selectedScheduleTeam);
+    ctx.fillText(
+        `${groupName} · Бригада ${selectedScheduleTeam}` +
+            (teamShift ? ` · зміна ${teamShift}` : ""),
+        padding,
+        38
+    );
 
     const weekTitle = document.getElementById("weekTitle");
     ctx.font = "16px sans-serif";
@@ -1492,6 +1563,10 @@ async function changeScheduleWeek(offset) {
 
     lunchScreenLoaded = false;
     markScheduleChanged();
+
+    if (!document.getElementById("lunchScreen").hidden) {
+        await showLunchScreen();
+    }
 
     await new Promise(resolve =>
         requestAnimationFrame(() =>
@@ -1811,7 +1886,7 @@ async function selectExotecGroup(group) {
 
     scheduleLoaded = false;
     lunchScreenLoaded = false;
-    lunchSettings = [];
+    lunchSettings = null;
     lunchSettingsPromise = null;
     lunchSettingsPromiseWeek = null;
     scheduleAssignments = [];
@@ -1918,7 +1993,7 @@ async function loadLunchSettings() {
         })
         .catch(error => {
             alert(error.message);
-            return [];
+            return null;
         })
         .finally(() => {
             if (lunchSettingsPromise === requestPromise) {
@@ -1933,9 +2008,27 @@ async function loadLunchSettings() {
     return requestPromise;
 }
 
-async function showLunchScreen() {
-    const screen = document.getElementById("lunchScreen");
+let lunchTeam = "A";
+let lunchDraft = [];
+let lunchDraftDirty = false;
 
+function escapeHtml(value) {
+    return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+}
+
+function resetLunchDraft() {
+    const pairs = lunchSettings && lunchSettings.teams
+        ? lunchSettings.teams[lunchTeam] || []
+        : [];
+    lunchDraft = pairs.map(pair => pair.map(member => ({ ...member })));
+    lunchDraftDirty = false;
+}
+
+async function showLunchScreen() {
     if (lunchScreenLoaded) {
         return;
     }
@@ -1949,53 +2042,103 @@ async function showLunchScreen() {
         await loadLunchSettings();
     }
 
-    const pairs = Array.from({ length: 5 }, (_, index) => `
-        <div class="lunch-pair">
-            <button class="lunch-worker-button" data-pair="${index}" data-slot="0">
-                Обрати працівника
+    lunchTeam = selectedScheduleTeam;
+    resetLunchDraft();
+    renderLunchScreen();
+    lunchScreenLoaded = true;
+}
+
+function renderLunchScreen() {
+    const screen = document.getElementById("lunchScreen");
+    const settings = lunchSettings || {
+        start_times: { 1: "10:00", 2: "18:00", 3: "02:00" },
+        team_slots: null,
+        teams: { A: [], B: [], C: [] },
+        interval_minutes: 30
+    };
+
+    const slot = settings.team_slots ? settings.team_slots[lunchTeam] : null;
+    const teamInfo = slot
+        ? `Бригада ${lunchTeam} цього тижня працює в зміні ${slot}, обід з ${settings.start_times[String(slot)]}`
+        : `Бригада ${lunchTeam}: ротацію змін не налаштовано, час обіду не розраховується`;
+
+    const groupsHtml = lunchDraft.map((pair, index) => {
+        const time = getLunchPairTime(lunchTeam, index + 1);
+        const members = pair.map(member => `
+            <button type="button" class="lunch-member-chip"
+                    data-group="${index}" data-worker-id="${member.id}"
+                    title="Прибрати з групи">
+                ${escapeHtml(member.name)} <span aria-hidden="true">✕</span>
             </button>
-            <button class="lunch-worker-button" data-pair="${index}" data-slot="1">
-                Обрати працівника
-            </button>
+        `).join("");
+
+        return `
+            <div class="lunch-group">
+                <div class="lunch-group-head">
+                    <strong>Група ${index + 1}</strong>
+                    <span class="lunch-group-time">${time || "—"}</span>
+                    <button type="button" class="lunch-group-remove"
+                            data-group="${index}" aria-label="Видалити групу">🗑</button>
+                </div>
+                <div class="lunch-members">
+                    ${members || '<span class="lunch-empty">Порожня група</span>'}
+                    <button type="button" class="lunch-member-add" data-group="${index}">
+                        + Працівник
+                    </button>
+                </div>
+            </div>
+        `;
+    }).join("");
+
+    const shiftRows = [1, 2, 3].map(shift => `
+        <div class="lunch-shift">
+            <strong>Зміна ${shift}</strong>
+            <label>
+                Початок обіду
+                <button type="button" class="lunch-time-button"
+                        data-shift="${shift}"
+                        data-time="${settings.start_times[String(shift)]}">${settings.start_times[String(shift)]}</button>
+            </label>
         </div>
     `).join("");
 
     screen.innerHTML = `
-        <section class="card">
+        <section class="card lunch-card">
             <div class="card-title">🍽 Обіди</div>
 
-            <div class="lunch-shifts">
-                <div class="lunch-shift">
-                    <strong>Зміна 1</strong>
-                    <label>
-                        Початок обіду
-                        <button class="lunch-time-button" data-time="10:00">10:00</button>
-                    </label>
-                </div>
-
-                <div class="lunch-shift">
-                    <strong>Зміна 2</strong>
-                    <label>
-                        Початок обіду
-                        <button class="lunch-time-button" data-time="18:00">18:00</button>
-                    </label>
-                </div>
-
-                <div class="lunch-shift">
-                    <strong>Зміна 3</strong>
-                    <label>
-                        Початок обіду
-                        <button class="lunch-time-button" data-time="02:00">02:00</button>
-                    </label>
-                </div>
+            <div class="worker-team-tabs" role="tablist" aria-label="Бригада">
+                ${["A", "B", "C"].map(team => `
+                    <button type="button" data-lunch-team="${team}"
+                            class="worker-team-tab${team === lunchTeam ? " active" : ""}">
+                        Бригада ${team}
+                    </button>
+                `).join("")}
             </div>
 
-            <div class="lunch-pairs">
-                ${pairs}
+            <div class="lunch-team-info">${escapeHtml(teamInfo)}</div>
+
+            <div class="lunch-groups">
+                ${groupsHtml || '<div class="workers-empty">Обідніх груп ще немає. Додайте першу групу.</div>'}
             </div>
 
-            <button class="add-worker-button">
-                Зберегти
+            <button type="button" class="station-choice-option lunch-add-group">
+                + Додати групу
+            </button>
+
+            <button type="button" class="add-worker-button lunch-save-team">
+                Зберегти обіди бригади ${lunchTeam}
+            </button>
+        </section>
+
+        <section class="card lunch-card">
+            <div class="card-title">⏰ Початок обіду за змінами</div>
+            <div class="lunch-hint">
+                Наступні групи обідають кожні ${settings.interval_minutes || 30} хв.
+                Час однаковий для всіх бригад групи й діє для всіх тижнів.
+            </div>
+            <div class="lunch-shifts">${shiftRows}</div>
+            <button type="button" class="add-worker-button lunch-save-times">
+                Зберегти час
             </button>
         </section>
 
@@ -2010,130 +2153,107 @@ async function showLunchScreen() {
         </div>
     `;
 
-    const shiftSettings = {
-        1: lunchSettings.find(item => item.shift === 1),
-        2: lunchSettings.find(item => item.shift === 2),
-        3: lunchSettings.find(item => item.shift === 3)
-    };
-
-    document.querySelectorAll(".lunch-time-button").forEach(button => {
-        const shift = button.closest(".lunch-shift")?.querySelector("strong")?.textContent;
-        const match = shift?.match(/Зміна (\d)/);
-
-        if (!match) {
-            return;
-        }
-
-        const setting = shiftSettings[Number(match[1])];
-
-        if (setting?.start_time) {
-            const time = String(setting.start_time).slice(0, 5);
-            button.textContent = time;
-            button.dataset.time = time;
-        }
+    screen.querySelectorAll("[data-lunch-team]").forEach(tab => {
+        tab.onclick = () => {
+            const team = tab.dataset.lunchTeam;
+            if (team === lunchTeam) {
+                return;
+            }
+            if (
+                lunchDraftDirty &&
+                !confirm("Незбережені зміни обідів цієї бригади буде втрачено. Продовжити?")
+            ) {
+                return;
+            }
+            lunchTeam = team;
+            resetLunchDraft();
+            renderLunchScreen();
+        };
     });
 
-    for (let index = 0; index < 5; index++) {
-        const setting = lunchSettings.find(
-            item => item.shift === 1 && item.pair_number === index + 1
-        );
+    screen.querySelectorAll(".lunch-member-chip").forEach(chip => {
+        chip.onclick = () => {
+            const group = Number(chip.dataset.group);
+            const workerId = Number(chip.dataset.workerId);
+            lunchDraft[group] = lunchDraft[group].filter(
+                member => Number(member.id) !== workerId
+            );
+            lunchDraftDirty = true;
+            renderLunchScreen();
+        };
+    });
 
-        const buttons = document.querySelectorAll(
-            `.lunch-worker-button[data-pair="${index}"]`
-        );
-
-        if (!setting) {
-            continue;
-        }
-
-        if (setting.worker1_id) {
-            buttons[0].textContent = setting.worker1_name || "Обрати працівника";
-            buttons[0].dataset.workerId = setting.worker1_id;
-        }
-
-        if (setting.worker2_id) {
-            buttons[1].textContent = setting.worker2_name || "Обрати працівника";
-            buttons[1].dataset.workerId = setting.worker2_id;
-        }
-    }
-
-    const saveLunchButton = screen.querySelector(".add-worker-button");
-
-    saveLunchButton.onclick = async () => {
-        const timeButtons = screen.querySelectorAll(".lunch-time-button");
-        const times = Array.from(timeButtons).map(button => button.dataset.time);
-
-        for (let shift = 1; shift <= 3; shift++) {
-            for (let index = 0; index < 5; index++) {
-                const buttons = screen.querySelectorAll(
-                    `.lunch-worker-button[data-pair="${index}"]`
-                );
-
-                const worker1Id = buttons[0].dataset.workerId
-                    ? Number(buttons[0].dataset.workerId)
-                    : null;
-
-                const worker2Id = buttons[1].dataset.workerId
-                    ? Number(buttons[1].dataset.workerId)
-                    : null;
-
-                const response = await fetch("/api/lunch/settings", {
-                    method: "PUT",
-                    headers: {
-                        "Content-Type": "application/json"
-                    },
-                    body: JSON.stringify({
-                        week_start: formatDate(getWeekStart()),
-                        shift,
-                        pair_number: index + 1,
-                        worker1_id: worker1Id,
-                        worker2_id: worker2Id,
-                        start_time: times[shift - 1],
-                           group: selectedExotecGroup
-                    })
-                });
-
-                if (!response.ok) {
-                    alert("Не вдалося зберегти налаштування обідів");
-                    return;
-                }
+    screen.querySelectorAll(".lunch-group-remove").forEach(button => {
+        button.onclick = () => {
+            const group = Number(button.dataset.group);
+            if (
+                lunchDraft[group].length &&
+                !confirm(`Видалити групу ${group + 1}?`)
+            ) {
+                return;
             }
-        }
+            lunchDraft.splice(group, 1);
+            lunchDraftDirty = true;
+            renderLunchScreen();
+        };
+    });
 
-        await loadLunchSettings();
-        lunchScreenLoaded = false;
-        await showLunchScreen();
-        alert("Налаштування обідів збережено");
+    screen.querySelectorAll(".lunch-member-add").forEach(button => {
+        button.onclick = () => openLunchMemberModal(Number(button.dataset.group));
+    });
+
+    screen.querySelector(".lunch-add-group").onclick = () => {
+        lunchDraft.push([]);
+        lunchDraftDirty = true;
+        renderLunchScreen();
     };
 
-    lunchScreenLoaded = true;
+    screen.querySelector(".lunch-save-team").onclick = saveLunchTeam;
+    screen.querySelector(".lunch-save-times").onclick = saveLunchStartTimes;
 }
 
-
-function openLunchWorkerModal(button) {
+function openLunchMemberModal(groupIndex) {
     const modal = document.getElementById("lunchModal");
     const title = document.getElementById("lunchModalTitle");
     const content = document.getElementById("lunchModalContent");
     const cancelButton = document.getElementById("lunchModalCancel");
 
-    title.textContent = "Обрати працівника";
+    title.textContent = `Група ${groupIndex + 1}: додати працівника`;
     content.innerHTML = "";
 
-    workers
-        .filter(worker => !worker.is_reserve)
-        .forEach(worker => {
-            const option = document.createElement("button");
-            option.className = "station-worker-option";
-            option.textContent = worker.name;
+    const used = new Set(
+        lunchDraft.flat().map(member => Number(member.id))
+    );
 
-            option.onclick = () => {
-                button.textContent = worker.name;
-                button.dataset.workerId = worker.id;
-                modal.classList.add("hidden");
-            };
+    const available = workers.filter(worker =>
+        String(worker.team_code).trim() === lunchTeam &&
+        !used.has(Number(worker.id))
+    );
 
-            content.appendChild(option);
-        });
+    if (!available.length) {
+        const empty = document.createElement("div");
+        empty.className = "workers-empty";
+        empty.textContent = "Усі працівники бригади вже в обідніх групах.";
+        content.appendChild(empty);
+    }
+
+    available.forEach(worker => {
+        const option = document.createElement("button");
+        option.type = "button";
+        option.className = "station-worker-option";
+        option.textContent = worker.is_reserve
+            ? `${worker.name} (резерв)`
+            : worker.name;
+
+        option.onclick = () => {
+            lunchDraft[groupIndex].push({ id: worker.id, name: worker.name });
+            lunchDraftDirty = true;
+            modal.classList.add("hidden");
+            renderLunchScreen();
+        };
+
+        content.appendChild(option);
+    });
 
     cancelButton.onclick = () => {
         modal.classList.add("hidden");
@@ -2147,6 +2267,80 @@ function openLunchWorkerModal(button) {
 
     modal.classList.remove("hidden");
 }
+
+async function readErrorMessage(response, fallback) {
+    const data = await response.json().catch(() => ({}));
+    return data.detail || fallback;
+}
+
+async function reloadLunchAfterSave() {
+    lunchSettingsPromise = null;
+    lunchSettingsPromiseWeek = null;
+    await loadLunchSettings();
+    resetLunchDraft();
+    renderLunchScreen();
+    markScheduleChanged();
+}
+
+async function saveLunchTeam() {
+    const pairs = lunchDraft
+        .map(pair => pair.map(member => Number(member.id)))
+        .filter(pair => pair.length);
+
+    const response = await fetch(
+        `/api/lunch/settings?group=${encodeURIComponent(selectedExotecGroup)}`,
+        {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                week_start: formatDate(getWeekStart()),
+                team_code: lunchTeam,
+                pairs
+            })
+        }
+    );
+
+    if (!response.ok) {
+        alert(await readErrorMessage(response, "Не вдалося зберегти обіди"));
+        return;
+    }
+
+    await reloadLunchAfterSave();
+    alert(`Обіди бригади ${lunchTeam} збережено`);
+}
+
+async function saveLunchStartTimes() {
+    const startTimes = {};
+    document.querySelectorAll("#lunchScreen .lunch-time-button").forEach(button => {
+        startTimes[button.dataset.shift] = button.dataset.time;
+    });
+
+    const response = await fetch(
+        `/api/lunch/start-times?group=${encodeURIComponent(selectedExotecGroup)}`,
+        {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ start_times: startTimes })
+        }
+    );
+
+    if (!response.ok) {
+        alert(await readErrorMessage(response, "Не вдалося зберегти час обіду"));
+        return;
+    }
+
+    const dirty = lunchDraftDirty;
+    const draft = lunchDraft;
+    await reloadLunchAfterSave();
+    if (dirty) {
+        // Незбережений склад груп не губимо через збереження часу.
+        lunchDraft = draft;
+        lunchDraftDirty = true;
+        renderLunchScreen();
+    }
+    alert("Час обіду збережено");
+}
+
 
 function openLunchTimeModal(button) {
     const modal = document.getElementById("lunchModal");
@@ -2286,6 +2480,10 @@ function openLunchTimeModal(button) {
     });
 
     requestAnimationFrame(() => {
+        // Поки модальне вікно було приховане, прокрутка не застосовувалась,
+        // і «Готово» без прокручування давало 00:00.
+        scrollWheelToIndex(hourWheel, hourIndex);
+        scrollWheelToIndex(minuteWheel, minuteIndex);
         updateSelected(hourWheel);
         updateSelected(minuteWheel);
     });
@@ -2323,13 +2521,6 @@ function openLunchTimeModal(button) {
 }
 
 document.addEventListener("click", event => {
-    const workerButton = event.target.closest(".lunch-worker-button");
-
-    if (workerButton) {
-        openLunchWorkerModal(workerButton);
-        return;
-    }
-
     const timeButton = event.target.closest(".lunch-time-button");
 
     if (timeButton) {
