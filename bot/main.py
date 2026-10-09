@@ -31,6 +31,12 @@ import uvicorn
 
 from bot.database import (
     get_group_team_shift_slots,
+    get_group_worker_days_off,
+    set_group_worker_day_off,
+    delete_group_worker_day_off,
+    set_group_schedule_reserve,
+    delete_group_schedule_reserve,
+    clear_group_schedule_week,
     get_group_schedule_assignments,
     get_group_schedule_reserves,
     generate_group_schedule_assignments,
@@ -560,7 +566,7 @@ async def schedule_reserve_put(
 ):
     from datetime import date
 
-    group = validate_exotec_group(group)
+    group = await validate_worker_group(group)
 
     try:
         week_start = date.fromisoformat(data["week_start"])
@@ -570,12 +576,15 @@ async def schedule_reserve_put(
         raise HTTPException(status_code=400, detail="Некоректні дані Reserve")
 
     week = await get_or_create_schedule_week(week_start)
-    await set_schedule_reserve(
-        week["id"],
-        work_date,
-        worker_id,
-        group,
-    )
+    try:
+        await set_group_schedule_reserve(
+            week["id"],
+            work_date,
+            worker_id,
+            group,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
     return {"ok": True}
 
@@ -587,7 +596,7 @@ async def schedule_reserve_delete(
     worker_id: int,
     group: str = "exotec_2",
 ):
-    group = validate_exotec_group(group)
+    group = await validate_worker_group(group)
     from datetime import date
 
     try:
@@ -597,7 +606,7 @@ async def schedule_reserve_delete(
         raise HTTPException(status_code=400, detail="Некоректна дата")
 
     week = await get_or_create_schedule_week(week_start)
-    await delete_schedule_reserve(
+    await delete_group_schedule_reserve(
         week["id"],
         work_date,
         worker_id,
@@ -613,7 +622,7 @@ async def schedule_clear(
     data: dict,
     group: str = "exotec_2",
 ):
-    group = validate_exotec_group(group)
+    group = await validate_worker_group(group)
 
     try:
         from datetime import date
@@ -622,12 +631,12 @@ async def schedule_clear(
         raise HTTPException(status_code=400, detail="Некоректна дата тижня")
 
     week = await get_or_create_schedule_week(week_start)
-    await delete_schedule_assignments_for_week(
-        week["id"],
-        group,
-    )
+    try:
+        deleted = await clear_group_schedule_week(week["id"], group)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
-    return {"ok": True}
+    return {"ok": True, "deleted": deleted}
 
 
 @app.post("/api/schedule/generate")
@@ -706,7 +715,7 @@ async def worker_days_off_get(
     end_date: str,
     group: str = "exotec_2",
 ):
-    group = validate_exotec_group(group)
+    group = await validate_worker_group(group)
     try:
         from datetime import date
         start_date = date.fromisoformat(start_date)
@@ -717,7 +726,7 @@ async def worker_days_off_get(
     if start_date > end_date:
         raise HTTPException(status_code=400, detail="Некоректний діапазон дат")
 
-    days_off = await get_worker_days_off(start_date, end_date, group)
+    days_off = await get_group_worker_days_off(group, start_date, end_date)
 
     return {
         "days_off": days_off
@@ -729,7 +738,7 @@ async def worker_days_off_update(
     data: dict,
     group: str = "exotec_2",
 ):
-    group = validate_exotec_group(group)
+    group = await validate_worker_group(group)
     try:
         from datetime import date
         worker_id = int(data.get("worker_id"))
@@ -739,10 +748,13 @@ async def worker_days_off_update(
 
     is_day_off = bool(data.get("is_day_off", True))
 
-    if is_day_off:
-        result = await set_worker_day_off(worker_id, work_date, group)
-    else:
-        result = await delete_worker_day_off(worker_id, work_date, group)
+    try:
+        if is_day_off:
+            result = await set_group_worker_day_off(group, worker_id, work_date)
+        else:
+            result = await delete_group_worker_day_off(group, worker_id, work_date)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
     return {
         "day_off": result
@@ -755,14 +767,14 @@ async def worker_days_off_delete(
     work_date: str,
     group: str = "exotec_2",
 ):
-    group = validate_exotec_group(group)
+    group = await validate_worker_group(group)
     try:
         from datetime import date
         work_date = date.fromisoformat(work_date)
     except (TypeError, ValueError):
         raise HTTPException(status_code=400, detail="Некоректна дата")
 
-    result = await delete_worker_day_off(worker_id, work_date, group)
+    result = await delete_group_worker_day_off(group, worker_id, work_date)
 
     if result is None:
         raise HTTPException(status_code=404, detail="Вихідний не знайдено")

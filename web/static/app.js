@@ -491,7 +491,7 @@ function openStationChoiceModal(worker, workDate, currentAssignment = null) {
     dayOffButton.textContent = "Встановити вихідний";
 
     dayOffButton.onclick = async () => {
-        const response = await fetch("/api/worker-days-off", {
+        const response = await fetch(`/api/worker-days-off?group=${encodeURIComponent(selectedExotecGroup)}`, {
             method: "PUT",
             headers: {
                 "Content-Type": "application/json"
@@ -737,7 +737,7 @@ function openDayOffModal(worker, workDate) {
     cancelDayOffButton.textContent = "Скасувати вихідний";
 
     cancelDayOffButton.onclick = async () => {
-        const response = await fetch("/api/worker-days-off", {
+        const response = await fetch(`/api/worker-days-off?group=${encodeURIComponent(selectedExotecGroup)}`, {
             method: "PUT",
             headers: {
                 "Content-Type": "application/json"
@@ -2347,7 +2347,7 @@ document.getElementById("clearScheduleButton").onclick = async () => {
     const weekStart = formatDate(getWeekStart());
     const clearNavigationVersion = weekNavigationVersion;
 
-    const response = await fetch("/api/schedule/clear", {
+    const response = await fetch(`/api/schedule/clear?group=${encodeURIComponent(selectedExotecGroup)}`, {
         method: "DELETE",
         headers: {
             "Content-Type": "application/json"
