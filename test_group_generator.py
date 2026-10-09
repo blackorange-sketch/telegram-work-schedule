@@ -10,7 +10,12 @@ WEEK_START = date(2026, 10, 5)
 
 
 async def main():
-    pool = await asyncpg.create_pool(os.environ["DATABASE_URL"])
+    database_url = os.environ.get("DATABASE_URL", "")
+    if "telegram_schedule_test" not in database_url:
+        raise RuntimeError(
+            "Зупинка: DATABASE_URL має вказувати на telegram_schedule_test"
+        )
+    pool = await asyncpg.create_pool(database_url)
     db._pool = pool
     created = False
 

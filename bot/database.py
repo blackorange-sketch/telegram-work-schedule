@@ -812,6 +812,26 @@ async def generate_group_schedule_assignments(
                     random.shuffle(never_reserved)
                     random.shuffle(previously_reserved)
 
+                    # Спершу ті, у кого далі цього тижня менше доступних днів:
+                    # інакше працівник із вихідним у п'ятницю може лишитися
+                    # без резерву, а хтось інший отримає його двічі.
+                    def remaining_days(row):
+                        return sum(
+                            1 for later in range(day_offset + 1, 5)
+                            if (
+                                row["id"],
+                                week_start + timedelta(days=later),
+                            ) not in days_off
+                        )
+
+                    never_reserved.sort(key=remaining_days)
+                    previously_reserved.sort(
+                        key=lambda row: (
+                            reserve_count[row["id"]],
+                            remaining_days(row),
+                        )
+                    )
+
                     ordinary_reserves = (
                         never_reserved + previously_reserved
                     )[:reserve_slots]

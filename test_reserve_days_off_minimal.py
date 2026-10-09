@@ -205,8 +205,17 @@ async def main():
             errors.append(
                 f"звичайний резерв {daily_ordinary_reserves} != [0,1,0,1,0]"
             )
-        if w1_assignments != 3:
-            errors.append(f"W1 має 3 призначення, є {w1_assignments}")
+        # Кожен звичайний працівник: станції = доступні дні - дні резерву.
+        # (Чи потрапить W1 у резерв, залежить від випадкового вибору.)
+        for worker_id in ordinary_ids:
+            off = sum(1 for wid, _ in absences if wid == worker_id)
+            got = sum(1 for a in assignments if a["worker_id"] == worker_id)
+            res = sum(1 for r in reserves if r["worker_id"] == worker_id)
+            if got != 5 - off - res:
+                errors.append(
+                    f"працівник {worker_id}: {got} станцій, "
+                    f"очікувалось {5 - off - res} (відсутній {off}, резерв {res})"
+                )
         if repeats:
             errors.append(f"повтори станцій: {[dict(r) for r in repeats]}")
         if len(ordinary_reserve_workers) != 2:
