@@ -2165,3 +2165,218 @@ async def set_group_lunch_start_times(group_slug, start_times):
             )
 
     return {str(slot): value.strftime("%H:%M") for slot, value in sorted(parsed.items())}
+
+
+# ---------------------------------------------------------------------------
+# Керування групами (лише super admin): назва, активність, станції.
+# ---------------------------------------------------------------------------
+
+MAX_GROUP_STATIONS = 200
+
+
+def parse_station_numbers(text):
+    """«15-24» або «1-10, 12, 14» -> відсортований список унікальних номерів."""
+    numbers = set()
+    for part in str(text).replace(";", ",").split(","):
+        part = part.strip().replace("–", "-").replace("—", "-")
+        if not part:
+            continue
+        if "-" in part:
+            first, _, last = part.partition("-")
+            try:
+                first, last = int(first), int(last)
+            except ValueError:
+                raise ValueError(f"Некоректний діапазон станцій: «{part}»")
+            if first > last:
+                first, last = last, first
+            if last - first + 1 > MAX_GROUP_STATIONS:
+                raise ValueError(f"Забагато станцій у діапазоні «{part}»")
+            numbers.update(range(first, last + 1))
+        else:
+            try:
+                numbers.add(int(part))
+            except ValueError:
+                raise ValueError(f"Некоректний номер станції: «{part}»")
+
+    if not numbers:
+        raise ValueError("Вкажіть хоча б одну станцію")
+    if min(numbers) < 1 or max(numbers) > 9999:
+        raise ValueError("Номери станцій мають бути від 1 до 9999")
+    if len(numbers) > MAX_GROUP_STATIONS:
+        raise ValueError(f"Не більше {MAX_GROUP_STATIONS} станцій у групі")
+    return sorted(numbers)
+
+
+def format_station_ranges(numbers):
+    """[15,16,17,20] -> «15-17, 20»."""
+    numbers = sorted(numbers)
+    parts = []
+    start = prev = None
+    for number in numbers:
+        if start is None:
+            start = prev = number
+        elif number == prev + 1:
+            prev = number
+        else:
+            parts.append(f"{start}-{prev}" if prev > start else str(start))
+            start = prev = number
+    if start is not None:
+        parts.append(f"{start}-{prev}" if prev > start else str(start))
+    return ", ".join(parts)
+
+
+async def get_work_groups_admin():
+    async with _pool.acquire() as conn:
+        rows = await conn.fetch(
+            """
+            SELECT g.id, g.slug, g.name, g.active, g.sort_order,
+                   COALESCE(
+                       array_agg(s.station_number ORDER BY s.station_number)
+                       FILTER (WHERE s.active),
+                       '{}'
+                   ) AS stations,
+                   (SELECT COUNT(*) FROM group_workers w
+                    WHERE w.group_id = g.id AND w.active) AS workers
+            FROM work_groups g
+            LEFT JOIN work_group_stations s ON s.group_id = g.id
+            GROUP BY g.id
+            ORDER BY g.sort_order, g.name
+            """
+        )
+    result = []
+    for row in rows:
+        item = dict(row)
+        item["stations"] = list(item["stations"])
+        item["stations_text"] = format_station_ranges(item["stations"])
+        result.append(item)
+    return result
+
+
+def _clean_group_name(name):
+    name = " ".join(str(name or "").split())
+    if not name:
+        raise ValueError("Вкажіть назву групи")
+    if len(name) > 60:
+        raise ValueError("Назва групи задовга (до 60 символів)")
+    return name
+
+
+async def _sync_group_stations(conn, group_id, numbers):
+    # Станції, на які вже є призначення, не видаляємо, а вимикаємо:
+    # історія розкладу лишається цілою.
+    await conn.execute(
+        """
+        UPDATE work_group_stations
+        SET active = (station_number = ANY($2::int[]))
+        WHERE group_id = $1
+        """,
+        group_id, numbers,
+    )
+    await conn.execute(
+        """
+        INSERT INTO work_group_stations (group_id, station_number, label, active)
+        SELECT $1, n, n::text, TRUE
+        FROM unnest($2::int[]) AS n
+        ON CONFLICT (group_id, station_number) DO UPDATE SET active = TRUE
+        """,
+        group_id, numbers,
+    )
+
+
+async def create_work_group(name, stations_text):
+    import re
+
+    name = _clean_group_name(name)
+    numbers = parse_station_numbers(stations_text)
+
+    base = re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_") or "group"
+    if not re.match(r"^[a-z0-9]", base):
+        base = "group_" + base
+
+    async with _pool.acquire() as conn:
+        async with conn.transaction():
+            exists = await conn.fetchval(
+                "SELECT EXISTS(SELECT 1 FROM work_groups WHERE lower(name) = lower($1))",
+                name,
+            )
+            if exists:
+                raise ValueError("Група з такою назвою вже існує")
+
+            slug = base
+            suffix = 2
+            while await conn.fetchval(
+                "SELECT EXISTS(SELECT 1 FROM work_groups WHERE slug = $1)", slug
+            ):
+                slug = f"{base}_{suffix}"
+                suffix += 1
+
+            sort_order = await conn.fetchval(
+                "SELECT COALESCE(MAX(sort_order), 0) + 1 FROM work_groups"
+            )
+            group_id = await conn.fetchval(
+                """
+                INSERT INTO work_groups (slug, name, sort_order)
+                VALUES ($1, $2, $3)
+                RETURNING id
+                """,
+                slug, name, sort_order,
+            )
+            await conn.execute(
+                """
+                INSERT INTO group_schedule_settings (group_id)
+                VALUES ($1)
+                ON CONFLICT (group_id) DO NOTHING
+                """,
+                group_id,
+            )
+            await _sync_group_stations(conn, group_id, numbers)
+
+    return {"slug": slug, "name": name, "stations": numbers}
+
+
+async def update_work_group(slug, name=None, stations_text=None, active=None):
+    numbers = parse_station_numbers(stations_text) if stations_text is not None else None
+    if name is not None:
+        name = _clean_group_name(name)
+
+    async with _pool.acquire() as conn:
+        async with conn.transaction():
+            group_id = await conn.fetchval(
+                "SELECT id FROM work_groups WHERE slug = $1", slug
+            )
+            if group_id is None:
+                raise ValueError("Групу не знайдено")
+
+            if name is not None:
+                taken = await conn.fetchval(
+                    """
+                    SELECT EXISTS(
+                        SELECT 1 FROM work_groups
+                        WHERE lower(name) = lower($1) AND id <> $2
+                    )
+                    """,
+                    name, group_id,
+                )
+                if taken:
+                    raise ValueError("Група з такою назвою вже існує")
+                await conn.execute(
+                    "UPDATE work_groups SET name = $2 WHERE id = $1", group_id, name
+                )
+
+            if active is not None:
+                if not active:
+                    others = await conn.fetchval(
+                        "SELECT COUNT(*) FROM work_groups WHERE active AND id <> $1",
+                        group_id,
+                    )
+                    if others == 0:
+                        raise ValueError("Не можна вимкнути останню активну групу")
+                await conn.execute(
+                    "UPDATE work_groups SET active = $2 WHERE id = $1",
+                    group_id, bool(active),
+                )
+
+            if numbers is not None:
+                await _sync_group_stations(conn, group_id, numbers)
+
+    return {"slug": slug}

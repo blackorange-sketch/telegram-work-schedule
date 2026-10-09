@@ -1509,3 +1509,112 @@ body.group-select-mode #groupSelectScreen {
     font-size: 13px;
     font-weight: 600;
 }
+
+/* ===== Керування групами ===== */
+.group-admin-open {
+    width: 100%;
+    margin-top: 12px;
+    min-height: 44px;
+    border: 1px dashed var(--border);
+    border-radius: 14px;
+    background: transparent;
+    color: var(--accent);
+    font: inherit;
+    font-weight: 600;
+}
+
+#groupAdminPanel {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+#groupAdminPanel[hidden] {
+    display: none;
+}
+
+.group-admin-title {
+    margin-bottom: 4px;
+    font-size: 17px;
+    font-weight: 700;
+    text-align: center;
+}
+
+.group-admin-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+}
+
+.group-admin-row.inactive {
+    opacity: 0.6;
+}
+
+.group-admin-info {
+    display: flex;
+    flex: 1;
+    min-width: 0;
+    flex-direction: column;
+    gap: 3px;
+}
+
+.group-admin-info span {
+    color: var(--secondary);
+    font-size: 13px;
+    overflow-wrap: anywhere;
+}
+
+.group-admin-edit {
+    min-height: 36px;
+    padding: 6px 12px;
+    border: 0;
+    border-radius: 10px;
+    background: var(--bg);
+    color: var(--accent);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.group-form label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 10px;
+    font-size: 13px;
+    color: var(--secondary);
+}
+
+.group-form input[type="text"] {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    background: var(--card);
+    color: var(--text);
+    font-size: 16px;
+}
+
+.group-form .group-form-check {
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    color: var(--text);
+}
+
+.group-form-hint {
+    margin: -4px 0 10px;
+    color: var(--secondary);
+    font-size: 12px;
+    line-height: 1.4;
+}
+
+.group-form .add-worker-button {
+    display: block;
+    width: 100%;
+    margin: 0 0 8px;
+}

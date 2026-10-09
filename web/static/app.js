@@ -268,6 +268,8 @@ window.fetch = async (input, init = {}) => {
     }
 };
 
+let currentAuth = null;
+
 async function checkAdminAccess() {
     appLogEvent("ADMIN AUTH START", {
         telegramAvailable: !!window.Telegram,
@@ -296,7 +298,8 @@ async function checkAdminAccess() {
     denied.style.display = "none";
     document.querySelector(".app").style.display = "block";
 
-    return response.json();
+    currentAuth = await response.json();
+    return currentAuth;
 }
 let preparedShareMessageId = null;
 let preparedShareWeek = null;
@@ -2010,6 +2013,7 @@ adminAccessPromise.then(async authorized => {
     try {
         await loadAvailableWorkGroups();
         updateCurrentExotecGroupLabel();
+        setupGroupAdmin();
         showExotecGroupSelector();
     } catch (error) {
         console.error("LOAD GROUPS ERROR:", error);
@@ -2630,3 +2634,220 @@ document.getElementById("clearScheduleButton").onclick = async () => {
         )
     );
 };
+
+
+// =========================
+// Керування групами (лише super admin)
+// =========================
+
+function setupGroupAdmin() {
+    if (!currentAuth || !currentAuth.is_super_admin) {
+        return;
+    }
+    const section = document.querySelector("#groupSelectScreen .group-select");
+    if (!section || document.getElementById("groupAdminButton")) {
+        return;
+    }
+
+    const button = document.createElement("button");
+    button.type = "button";
+    button.id = "groupAdminButton";
+    button.className = "group-admin-open";
+    button.textContent = "⚙️ Керування групами";
+    button.onclick = openGroupAdmin;
+
+    const panel = document.createElement("div");
+    panel.id = "groupAdminPanel";
+    panel.hidden = true;
+
+    section.append(button, panel);
+}
+
+async function openGroupAdmin() {
+    const panel = document.getElementById("groupAdminPanel");
+    const list = document.getElementById("exotecGroupList");
+    const button = document.getElementById("groupAdminButton");
+
+    const response = await fetch("/api/admin/groups");
+    if (!response.ok) {
+        alert(await readErrorMessage(response, "Не вдалося завантажити групи"));
+        return;
+    }
+    const data = await response.json();
+
+    list.hidden = true;
+    button.hidden = true;
+    panel.hidden = false;
+    panel.innerHTML = "";
+
+    const title = document.createElement("div");
+    title.className = "group-admin-title";
+    title.textContent = "Керування групами";
+    panel.appendChild(title);
+
+    for (const group of data.groups) {
+        const row = document.createElement("div");
+        row.className = "group-admin-row" + (group.active ? "" : " inactive");
+
+        const info = document.createElement("div");
+        info.className = "group-admin-info";
+        const name = document.createElement("strong");
+        name.textContent = group.active ? group.name : `${group.name} (вимкнена)`;
+        const details = document.createElement("span");
+        details.textContent =
+            `Станції: ${group.stations_text || "немає"} · ${group.stations.length} шт · ` +
+            `працівників: ${group.workers}`;
+        info.append(name, details);
+
+        const edit = document.createElement("button");
+        edit.type = "button";
+        edit.className = "group-admin-edit";
+        edit.textContent = "Змінити";
+        edit.onclick = () => openGroupForm(group);
+
+        row.append(info, edit);
+        panel.appendChild(row);
+    }
+
+    const add = document.createElement("button");
+    add.type = "button";
+    add.className = "station-choice-option";
+    add.textContent = "+ Нова група";
+    add.onclick = () => openGroupForm(null);
+
+    const back = document.createElement("button");
+    back.type = "button";
+    back.className = "station-cancel-button";
+    back.textContent = "← До вибору групи";
+    back.onclick = closeGroupAdmin;
+
+    panel.append(add, back);
+}
+
+function closeGroupAdmin() {
+    document.getElementById("groupAdminPanel").hidden = true;
+    document.getElementById("exotecGroupList").hidden = false;
+    document.getElementById("groupAdminButton").hidden = false;
+}
+
+function countStationsPreview(text) {
+    const numbers = new Set();
+    for (const raw of String(text).replace(/;/g, ",").split(",")) {
+        const part = raw.trim().replace(/[–—]/g, "-");
+        if (!part) continue;
+        const match = part.match(/^(\d+)\s*-\s*(\d+)$/);
+        if (match) {
+            let [a, b] = [Number(match[1]), Number(match[2])];
+            if (a > b) [a, b] = [b, a];
+            if (b - a > 1000) return null;
+            for (let n = a; n <= b; n++) numbers.add(n);
+        } else if (/^\d+$/.test(part)) {
+            numbers.add(Number(part));
+        } else {
+            return null;
+        }
+    }
+    return numbers.size;
+}
+
+function openGroupForm(group) {
+    const old = document.getElementById("groupFormModal");
+    if (old) old.remove();
+
+    const modal = document.createElement("div");
+    modal.id = "groupFormModal";
+    modal.className = "station-modal";
+    modal.innerHTML = `
+        <div class="station-modal-box group-form">
+            <div class="station-modal-title">${group ? "Змінити групу" : "Нова група"}</div>
+            <label>
+                Назва
+                <input type="text" id="groupFormName" maxlength="60" autocomplete="off"
+                       placeholder="Наприклад, Exotec 4">
+            </label>
+            <label>
+                Станції
+                <input type="text" id="groupFormStations" autocomplete="off" inputmode="text"
+                       placeholder="Наприклад, 15-24 або 1-10, 12">
+            </label>
+            <div id="groupFormPreview" class="group-form-hint"></div>
+            ${group ? `
+            <label class="group-form-check">
+                <input type="checkbox" id="groupFormActive">
+                Група активна (видно у виборі групи)
+            </label>` : ""}
+            <button type="button" id="groupFormSave" class="add-worker-button">Зберегти</button>
+            <button type="button" id="groupFormCancel" class="station-cancel-button">Скасувати</button>
+        </div>
+    `;
+    document.body.appendChild(modal);
+
+    const nameInput = document.getElementById("groupFormName");
+    const stationsInput = document.getElementById("groupFormStations");
+    const preview = document.getElementById("groupFormPreview");
+    const activeInput = document.getElementById("groupFormActive");
+
+    nameInput.value = group ? group.name : "";
+    stationsInput.value = group ? group.stations_text : "";
+    if (activeInput) activeInput.checked = !!group.active;
+
+    const updatePreview = () => {
+        const count = countStationsPreview(stationsInput.value);
+        preview.textContent = count === null
+            ? "Формат: діапазони через дефіс, окремі номери через кому"
+            : `Станцій: ${count}` +
+              (count && count < 5
+                  ? ". Увага: якщо працівник працює 5 днів, а станцій менше 5, генератор не складе розклад без повторів."
+                  : "");
+    };
+    stationsInput.addEventListener("input", updatePreview);
+    updatePreview();
+
+    const close = () => modal.remove();
+    document.getElementById("groupFormCancel").onclick = close;
+    modal.onclick = event => {
+        if (event.target === modal) close();
+    };
+
+    document.getElementById("groupFormSave").onclick = async () => {
+        const payload = {
+            name: nameInput.value,
+            stations: stationsInput.value
+        };
+        if (activeInput) payload.active = activeInput.checked;
+
+        if (
+            group &&
+            group.stations_text &&
+            payload.stations.trim() !== group.stations_text &&
+            !confirm("Змінити станції групи? Вимкнені станції зникнуть з нових розкладів, історія залишиться.")
+        ) {
+            return;
+        }
+
+        const response = await fetch(
+            group
+                ? `/api/admin/groups/${encodeURIComponent(group.slug)}`
+                : "/api/admin/groups",
+            {
+                method: group ? "PUT" : "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            }
+        );
+
+        if (!response.ok) {
+            alert(await readErrorMessage(response, "Не вдалося зберегти групу"));
+            return;
+        }
+
+        close();
+        await loadAvailableWorkGroups();
+        if (group && group.slug === selectedExotecGroup) {
+            scheduleLoaded = false;
+        }
+        await openGroupAdmin();
+    };
+
+    nameInput.focus();
+}

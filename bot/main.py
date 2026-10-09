@@ -85,6 +85,8 @@ from bot.database import (
 TOKEN = os.getenv("BOT_TOKEN")
 WEB_APP_URL = os.getenv("WEB_APP_URL")
 ADMIN_IDS = {int(x.strip()) for x in os.getenv("ADMIN_IDS", "").split(",") if x.strip().isdigit()}
+# Super admin керує групами (назви, станції). Має бути також в ADMIN_IDS.
+SUPER_ADMIN_IDS = {int(x.strip()) for x in os.getenv("SUPER_ADMIN_IDS", "").split(",") if x.strip().isdigit()}
 
 # Telegram не оновлює initData, поки Mini App відкритий (навіть у фоні),
 # тому 1 години замало: після довгого згортання всі запити повертали б 403.
@@ -137,6 +139,13 @@ def require_admin(request: Request):
     user = validate_telegram_init_data(init_data)
     if not user or user.get("id") not in ADMIN_IDS:
         raise HTTPException(status_code=403, detail="Доступ дозволено лише адміністраторам")
+    return user
+
+
+def require_super_admin(request: Request):
+    user = require_admin(request)
+    if user.get("id") not in SUPER_ADMIN_IDS:
+        raise HTTPException(status_code=403, detail="Доступ дозволено лише super admin")
     return user
 
 
@@ -208,7 +217,48 @@ async def index():
 @app.get("/api/auth/me")
 async def auth_me(request: Request):
     user = require_admin(request)
-    return {"authorized": True, "user_id": user["id"]}
+    return {
+        "authorized": True,
+        "user_id": user["id"],
+        "is_super_admin": user["id"] in SUPER_ADMIN_IDS,
+    }
+
+
+# =========================
+# Groups admin API (super admin)
+# =========================
+
+@app.get("/api/admin/groups")
+async def admin_groups_list(request: Request):
+    require_super_admin(request)
+    from bot.database import get_work_groups_admin
+    return {"groups": await get_work_groups_admin()}
+
+
+@app.post("/api/admin/groups")
+async def admin_groups_create(request: Request, data: dict):
+    require_super_admin(request)
+    from bot.database import create_work_group
+    try:
+        return await create_work_group(data.get("name"), data.get("stations", ""))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@app.put("/api/admin/groups/{group_slug}")
+async def admin_groups_update(group_slug: str, request: Request, data: dict):
+    require_super_admin(request)
+    from bot.database import update_work_group
+    active = data.get("active")
+    try:
+        return await update_work_group(
+            group_slug,
+            name=data.get("name"),
+            stations_text=data.get("stations"),
+            active=None if active is None else bool(active),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
 
 @app.get("/api/groups")
