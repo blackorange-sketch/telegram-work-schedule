@@ -93,9 +93,8 @@ async def main():
         week_id = (await db.get_or_create_schedule_week(WEEK_START))["id"]
         next_week_id = (await db.get_or_create_schedule_week(NEXT_WEEK))["id"]
 
-        print("\n===== L1: без ротації і без налаштувань =====")
+        print("\n===== L1: без налаштувань обідів =====")
         data = await db.get_group_lunch(week_id, WEEK_START, SLUG)
-        check(data["team_slots"] is None, "ротація не налаштована -> team_slots None")
         check(
             data["start_times"] == {"1": "10:00", "2": "18:00", "3": "02:00"},
             "типовий час початку 10:00/18:00/02:00",

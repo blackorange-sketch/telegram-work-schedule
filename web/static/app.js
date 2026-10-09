@@ -1176,7 +1176,7 @@ function updateScheduleTeamTabs() {
         const button = document.createElement("button");
         button.type = "button";
         button.className = "rotation-button";
-        button.textContent = shift ? "⚙️ Ротація" : "⚙️ Налаштувати ротацію";
+        button.textContent = shift ? "⚙️ Ротація (усі групи)" : "⚙️ Налаштувати ротацію";
         button.onclick = configureGroupRotation;
         info.append(text, button);
     }
@@ -1188,7 +1188,7 @@ const SHIFT_HOURS = {
     3: "22:00–06:00"
 };
 
-// Ротацію задаємо через зміну бригади A на поточному тижні.
+// Ротація спільна для всіх груп. Задаємо її через зміну бригади A на поточному тижні.
 // Сервер зберігає «фазу»: фаза 2 → A у зміні 1, фаза 3 → A у 2, фаза 1 → A у 3.
 async function configureGroupRotation() {
     const weekStart = formatDate(getWeekStart());
@@ -1196,6 +1196,7 @@ async function configureGroupRotation() {
     const weekLabel = weekTitle ? weekTitle.textContent.trim() : weekStart;
 
     const answer = prompt(
+        `Ротація змін для всіх груп.\n` +
         `У якій зміні працює бригада A на тижні ${weekLabel}?\n\n` +
         `1 — ${SHIFT_HOURS[1]}\n2 — ${SHIFT_HOURS[2]}\n3 — ${SHIFT_HOURS[3]}`
     );
@@ -1210,17 +1211,14 @@ async function configureGroupRotation() {
         return false;
     }
 
-    const response = await fetch(
-        `/api/schedule/settings?group=${encodeURIComponent(selectedExotecGroup)}`,
-        {
-            method: "PUT",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                start_week: weekStart,
-                start_shift: (teamAShift % 3) + 1
-            })
-        }
-    );
+    const response = await fetch("/api/rotation", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+            start_week: weekStart,
+            start_shift: (teamAShift % 3) + 1
+        })
+    });
 
     if (!response.ok) {
         const data = await response.json().catch(() => ({}));
@@ -1228,18 +1226,21 @@ async function configureGroupRotation() {
         return false;
     }
 
-    await loadScheduleShift();
-    lunchSettingsPromise = null;
-    lunchSettingsPromiseWeek = null;
-    await loadLunchSettings();
-    lunchScreenLoaded = false;
-    markScheduleChanged();
+    const slots = await loadRotationCard();
+    if (selectedExotecGroup && scheduleLoaded) {
+        await loadScheduleShift();
+        lunchSettingsPromise = null;
+        lunchSettingsPromiseWeek = null;
+        await loadLunchSettings();
+        lunchScreenLoaded = false;
+        markScheduleChanged();
+    }
 
-    if (scheduleTeamSlots) {
+    if (slots) {
         alert(
-            "Ротацію збережено. Цього тижня:\n" +
+            "Ротацію збережено для всіх груп. Цього тижня:\n" +
             ["A", "B", "C"]
-                .map(team => `Бригада ${team} — зміна ${scheduleTeamSlots[team]} (${SHIFT_HOURS[scheduleTeamSlots[team]]})`)
+                .map(team => `Бригада ${team} — зміна ${slots[team]} (${SHIFT_HOURS[slots[team]]})`)
                 .join("\n") +
             "\n\nНа наступних тижнях зміни чергуються автоматично."
         );
@@ -1959,6 +1960,9 @@ async function selectExotecGroup(group) {
 
 function showExotecGroupSelector() {
     showScreen("groupSelectScreen");
+    if (document.getElementById("rotationCard")) {
+        loadRotationCard();
+    }
 }
 
 function updateCurrentExotecGroupLabel() {
@@ -2013,6 +2017,8 @@ adminAccessPromise.then(async authorized => {
     try {
         await loadAvailableWorkGroups();
         updateCurrentExotecGroupLabel();
+        setupRotationCard();
+        await loadRotationCard();
         setupGroupAdmin();
         showExotecGroupSelector();
     } catch (error) {
@@ -2850,4 +2856,80 @@ function openGroupForm(group) {
     };
 
     nameInput.focus();
+}
+
+
+// =========================
+// Спільна ротація змін на екрані вибору групи
+// =========================
+
+function setupRotationCard() {
+    const section = document.querySelector("#groupSelectScreen .group-select");
+    const list = document.getElementById("exotecGroupList");
+    if (!section || !list || document.getElementById("rotationCard")) {
+        return;
+    }
+    const card = document.createElement("div");
+    card.id = "rotationCard";
+    card.className = "rotation-card";
+    section.insertBefore(card, list);
+}
+
+async function loadRotationCard() {
+    const card = document.getElementById("rotationCard");
+    const weekStart = formatDate(getWeekStart());
+
+    let data = null;
+    try {
+        const response = await fetch(`/api/rotation?week_start=${weekStart}`);
+        if (response.ok) {
+            data = await response.json();
+        }
+    } catch (error) {
+        appLogEvent("ROTATION LOAD ERROR: " + String(error));
+    }
+
+    if (!card) {
+        return data ? data.team_slots : null;
+    }
+
+    const weekTitle = document.getElementById("weekTitle");
+    const weekLabel = weekTitle ? weekTitle.textContent.trim() : weekStart;
+    card.innerHTML = "";
+
+    const head = document.createElement("div");
+    head.className = "rotation-card-head";
+    const title = document.createElement("strong");
+    title.textContent = "Ротація змін";
+    const week = document.createElement("span");
+    week.textContent = weekLabel;
+    head.append(title, week);
+    card.appendChild(head);
+
+    if (data && data.team_slots) {
+        const teams = document.createElement("div");
+        teams.className = "rotation-card-teams";
+        ["A", "B", "C"].forEach(team => {
+            const slot = data.team_slots[team];
+            const item = document.createElement("div");
+            item.className = "rotation-card-team";
+            item.innerHTML = `<b>Бригада ${team}</b><span>зміна ${slot}</span><small>${SHIFT_HOURS[slot]}</small>`;
+            teams.appendChild(item);
+        });
+        card.appendChild(teams);
+    } else {
+        const empty = document.createElement("div");
+        empty.className = "rotation-card-empty";
+        empty.textContent = "Ротацію ще не налаштовано. Вона спільна для всіх груп.";
+        card.appendChild(empty);
+    }
+
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "rotation-button";
+    button.textContent = data && data.team_slots ? "⚙️ Змінити ротацію" : "⚙️ Налаштувати ротацію";
+    button.onclick = configureGroupRotation;
+    card.appendChild(button);
+
+    return data ? data.team_slots : null;
 }

@@ -428,6 +428,43 @@ async def schedule_shift(week_start: str, group: str = "exotec_2"):
 # Schedule Settings API
 # =========================
 
+@app.get("/api/rotation")
+async def rotation_get(week_start: str):
+    from datetime import date
+    from bot.database import get_rotation_settings, team_slots_for_week
+
+    try:
+        week_start = date.fromisoformat(week_start)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="Некоректна дата тижня")
+
+    rotation = await get_rotation_settings()
+    return {
+        "configured": rotation is not None,
+        "week_start": week_start.isoformat(),
+        "team_slots": team_slots_for_week(rotation, week_start),
+    }
+
+
+@app.put("/api/rotation")
+async def rotation_put(data: dict):
+    from datetime import date
+    from bot.database import set_rotation_settings
+
+    try:
+        start_week = date.fromisoformat(data.get("start_week"))
+        start_shift = int(data.get("start_shift"))
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="Некоректні дані ротації")
+
+    if start_week.weekday() != 0:
+        raise HTTPException(status_code=400, detail="Дата початку тижня має бути понеділком")
+    if start_shift not in (1, 2, 3):
+        raise HTTPException(status_code=400, detail="Зміна має бути 1, 2 або 3")
+
+    return await set_rotation_settings(start_week, start_shift)
+
+
 @app.get("/api/schedule/settings")
 async def schedule_settings_get(group: str = "exotec_2"):
     group = await validate_worker_group(group)

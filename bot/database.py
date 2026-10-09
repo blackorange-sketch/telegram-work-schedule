@@ -387,43 +387,81 @@ async def get_schedule_settings():
         return dict(row) if row else None
 
 
-async def get_group_schedule_settings(group_slug):
+async def get_rotation_settings():
+    """Спільна ротація змін для всіх груп (або None, якщо не налаштована)."""
     async with _pool.acquire() as conn:
-        row = await conn.fetchrow("""
-            SELECT g.slug, s.start_week, s.start_shift_slot
-            FROM work_groups g
-            LEFT JOIN group_schedule_settings s ON s.group_id = g.id
-            WHERE g.slug = $1
-        """, group_slug)
-
+        row = await conn.fetchrow(
+            "SELECT start_week, start_shift_slot, updated_at "
+            "FROM rotation_settings WHERE id = 1"
+        )
         return dict(row) if row else None
+
+
+async def set_rotation_settings(start_week, start_shift_slot: int):
+    if not 1 <= int(start_shift_slot) <= 3:
+        raise ValueError("start_shift_slot має бути від 1 до 3")
+
+    async with _pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """
+            INSERT INTO rotation_settings (id, start_week, start_shift_slot, updated_at)
+            VALUES (1, $1, $2, NOW())
+            ON CONFLICT (id) DO UPDATE SET
+                start_week = EXCLUDED.start_week,
+                start_shift_slot = EXCLUDED.start_shift_slot,
+                updated_at = NOW()
+            RETURNING start_week, start_shift_slot
+            """,
+            start_week, int(start_shift_slot),
+        )
+        return dict(row)
+
+
+async def get_group_schedule_settings(group_slug):
+    """Налаштування ротації для групи — тепер це спільна ротація всього складу."""
+    async with _pool.acquire() as conn:
+        exists = await conn.fetchval(
+            "SELECT EXISTS(SELECT 1 FROM work_groups WHERE slug = $1)", group_slug
+        )
+    if not exists:
+        return None
+
+    rotation = await get_rotation_settings()
+    return {
+        "slug": group_slug,
+        "start_week": rotation["start_week"] if rotation else None,
+        "start_shift_slot": rotation["start_shift_slot"] if rotation else None,
+        "global": True,
+    }
 
 
 async def set_group_schedule_settings(
     group_slug, start_week, start_shift_slot: int
 ):
-    if not 1 <= start_shift_slot <= 3:
-        raise ValueError("start_shift_slot має бути від 1 до 3")
-
+    """Залишено для сумісності: змінює спільну ротацію для всіх груп."""
     async with _pool.acquire() as conn:
-        row = await conn.fetchrow("""
-            INSERT INTO group_schedule_settings (
-                group_id, start_week, start_shift_slot, updated_at
-            )
-            SELECT id, $2, $3, NOW()
-            FROM work_groups
-            WHERE slug = $1
-            ON CONFLICT (group_id) DO UPDATE SET
-                start_week = EXCLUDED.start_week,
-                start_shift_slot = EXCLUDED.start_shift_slot,
-                updated_at = NOW()
-            RETURNING group_id, start_week, start_shift_slot
-        """, group_slug, start_week, start_shift_slot)
+        exists = await conn.fetchval(
+            "SELECT EXISTS(SELECT 1 FROM work_groups WHERE slug = $1)", group_slug
+        )
+    if not exists:
+        raise ValueError(f"Групу не знайдено: {group_slug}")
+    return await set_rotation_settings(start_week, start_shift_slot)
 
-        if not row:
-            raise ValueError(f"Групу не знайдено: {group_slug}")
 
-        return dict(row)
+def team_slots_for_week(rotation, week_start):
+    """Зміна кожної бригади на тижні week_start за спільною ротацією."""
+    if not rotation or rotation.get("start_week") is None:
+        return None
+    weeks_diff = (week_start - rotation["start_week"]).days // 7
+    phase = ((rotation["start_shift_slot"] - 1 - weeks_diff) % 3) + 1
+    return dict(ROTATION_PHASES[phase])
+
+
+ROTATION_PHASES = {
+    3: {"C": 1, "A": 2, "B": 3},
+    2: {"A": 1, "B": 2, "C": 3},
+    1: {"B": 1, "C": 2, "A": 3},
+}
 
 
 async def get_group_shift_for_week(group_slug, week_start):
@@ -684,9 +722,7 @@ async def generate_group_schedule_assignments(
 
     team_slots = await get_group_team_shift_slots(group_slug, week_start)
     if not team_slots:
-        raise ValueError(
-            f"Не налаштовано ротацію групи: {group_slug}"
-        )
+        raise ValueError("Спочатку налаштуйте ротацію змін")
 
     async with _pool.acquire() as conn:
         async with conn.transaction():
@@ -1687,17 +1723,16 @@ async def set_group_schedule_assignment(
             rotation = await conn.fetchrow(
                 """
                 SELECT start_week, start_shift_slot
-                FROM group_schedule_settings
-                WHERE group_id = $1
-                """,
-                group_id,
+                FROM rotation_settings
+                WHERE id = 1
+                """
             )
             if (
                 not rotation
                 or rotation["start_week"] is None
                 or rotation["start_shift_slot"] is None
             ):
-                raise ValueError("Спочатку налаштуйте ротацію групи")
+                raise ValueError("Спочатку налаштуйте ротацію змін")
 
             weeks_diff = (week_start - rotation["start_week"]).days // 7
             phase = (

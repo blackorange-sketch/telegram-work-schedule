@@ -1618,3 +1618,68 @@ body.group-select-mode #groupSelectScreen {
     width: 100%;
     margin: 0 0 8px;
 }
+
+/* ===== Спільна ротація на екрані вибору групи ===== */
+.rotation-card {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-bottom: 14px;
+    padding: 14px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+}
+
+.rotation-card-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+}
+
+.rotation-card-head span {
+    color: var(--secondary);
+    font-size: 13px;
+}
+
+.rotation-card-teams {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+}
+
+.rotation-card-team {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 2px;
+    padding: 8px 4px;
+    background: var(--bg);
+    border-radius: 12px;
+    text-align: center;
+}
+
+.rotation-card-team b {
+    font-size: 13px;
+}
+
+.rotation-card-team span {
+    font-size: 15px;
+    font-weight: 700;
+}
+
+.rotation-card-team small {
+    color: var(--secondary);
+    font-size: 11px;
+}
+
+.rotation-card-empty {
+    color: var(--secondary);
+    font-size: 13px;
+}
+
+.rotation-card .rotation-button {
+    align-self: stretch;
+    background: var(--bg);
+}

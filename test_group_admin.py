@@ -57,7 +57,7 @@ async def main():
         check(groups[SLUG]["stations_text"] == "1-5, 8", "у списку адміна «1-5, 8»")
         check(any(g["slug"] == SLUG for g in await db.get_work_groups()), "група видна у виборі групи")
         settings = await db.get_group_schedule_settings(SLUG)
-        check(settings and settings["start_week"] is None, "ротація ще не налаштована")
+        check(settings is not None and settings.get("global"), "нова група одразу бере спільну ротацію")
 
         print("\n===== G2: заборонені значення =====")
         await expect_value_error(db.create_work_group(NAME.upper(), "1-3"), "дубль назви (без урахування регістру)")
