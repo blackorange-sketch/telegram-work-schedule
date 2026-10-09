@@ -1488,3 +1488,24 @@ body.group-select-mode #groupSelectScreen {
 .lunch-add-group {
     margin-bottom: 8px;
 }
+
+/* ===== Ротація змін під вкладками бригад ===== */
+#scheduleTeamInfo {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.rotation-button {
+    min-height: 36px;
+    padding: 6px 12px;
+    border: 0;
+    border-radius: 10px;
+    background: var(--card);
+    color: var(--accent);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+}

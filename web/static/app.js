@@ -1165,10 +1165,83 @@ function updateScheduleTeamTabs() {
     const info = document.getElementById("scheduleTeamInfo");
     if (info) {
         const shift = getTeamShift(selectedScheduleTeam);
-        info.textContent = shift
-            ? `Бригада ${selectedScheduleTeam} · зміна ${shift}`
+        info.innerHTML = "";
+        const text = document.createElement("span");
+        text.textContent = shift
+            ? `Бригада ${selectedScheduleTeam} · зміна ${shift} (${SHIFT_HOURS[shift]})`
             : `Бригада ${selectedScheduleTeam} · ротацію змін не налаштовано`;
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "rotation-button";
+        button.textContent = shift ? "⚙️ Ротація" : "⚙️ Налаштувати ротацію";
+        button.onclick = configureGroupRotation;
+        info.append(text, button);
     }
+}
+
+const SHIFT_HOURS = {
+    1: "06:00–14:00",
+    2: "14:00–22:00",
+    3: "22:00–06:00"
+};
+
+// Ротацію задаємо через зміну бригади A на поточному тижні.
+// Сервер зберігає «фазу»: фаза 2 → A у зміні 1, фаза 3 → A у 2, фаза 1 → A у 3.
+async function configureGroupRotation() {
+    const weekStart = formatDate(getWeekStart());
+    const weekTitle = document.getElementById("weekTitle");
+    const weekLabel = weekTitle ? weekTitle.textContent.trim() : weekStart;
+
+    const answer = prompt(
+        `У якій зміні працює бригада A на тижні ${weekLabel}?\n\n` +
+        `1 — ${SHIFT_HOURS[1]}\n2 — ${SHIFT_HOURS[2]}\n3 — ${SHIFT_HOURS[3]}`
+    );
+
+    if (answer === null) {
+        return false;
+    }
+
+    const teamAShift = Number(String(answer).trim());
+    if (![1, 2, 3].includes(teamAShift)) {
+        alert("Потрібно ввести 1, 2 або 3");
+        return false;
+    }
+
+    const response = await fetch(
+        `/api/schedule/settings?group=${encodeURIComponent(selectedExotecGroup)}`,
+        {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                start_week: weekStart,
+                start_shift: (teamAShift % 3) + 1
+            })
+        }
+    );
+
+    if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        alert(data.detail || "Не вдалося зберегти ротацію");
+        return false;
+    }
+
+    await loadScheduleShift();
+    lunchSettingsPromise = null;
+    lunchSettingsPromiseWeek = null;
+    await loadLunchSettings();
+    lunchScreenLoaded = false;
+    markScheduleChanged();
+
+    if (scheduleTeamSlots) {
+        alert(
+            "Ротацію збережено. Цього тижня:\n" +
+            ["A", "B", "C"]
+                .map(team => `Бригада ${team} — зміна ${scheduleTeamSlots[team]} (${SHIFT_HOURS[scheduleTeamSlots[team]]})`)
+                .join("\n") +
+            "\n\nНа наступних тижнях зміни чергуються автоматично."
+        );
+    }
+    return true;
 }
 
 document.querySelectorAll("[data-schedule-team]").forEach(tab => {
@@ -1705,29 +1778,10 @@ function bindScheduleButtons() {
 
         const settings = await settingsResponse.json();
 
-        if (!settings) {
-            const selectedShift = prompt(
-                "Вкажіть початкову зміну:\n\n1 — 06:00–14:00\n2 — 14:00–22:00\n3 — 22:00–06:00"
-            );
-
-            if (!["1", "2", "3"].includes(selectedShift)) {
-                return;
-            }
-
-            const settingsSaveResponse = await fetch(`/api/schedule/settings?group=${encodeURIComponent(selectedExotecGroup)}`, {
-                method: "PUT",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify({
-                    start_week: weekStart,
-                    start_shift: Number(selectedShift)
-                })
-            });
-
-            if (!settingsSaveResponse.ok) {
-                const data = await settingsSaveResponse.json().catch(() => ({}));
-                alert(data.detail || "Не вдалося зберегти початкову зміну");
+        // Сервер завжди повертає рядок налаштувань групи, тому перевіряємо поля.
+        if (!settings || !settings.start_week || !settings.start_shift_slot) {
+            const configured = await configureGroupRotation();
+            if (!configured) {
                 return;
             }
         }
