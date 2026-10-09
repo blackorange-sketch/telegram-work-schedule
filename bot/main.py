@@ -283,8 +283,14 @@ async def admin_groups_update(group_slug: str, request: Request, data: dict):
 
 @app.get("/api/groups")
 async def api_get_groups():
-    from bot.database import get_work_groups
-    return {"groups": await get_work_groups()}
+    # Разом зі станціями, щоб екран вибору групи одразу показував їх для всіх груп.
+    from bot.database import get_work_groups_admin
+    groups = await get_work_groups_admin()
+    return {"groups": [
+        {key: group[key] for key in ("id", "slug", "name", "active", "sort_order", "stations", "stations_text")}
+        for group in groups
+        if group["active"]
+    ]}
 
 
 @app.get("/api/groups/{group_slug}/stations")

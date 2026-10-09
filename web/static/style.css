@@ -1951,3 +1951,31 @@ body.group-select-mode #groupSelectScreen {
     width: 28px;
     height: 28px;
 }
+
+/* ===== Відступи під системні кнопки Telegram у повноекранному режимі =====
+   telegram-web-app.js сам виставляє --tg-safe-area-inset-* і
+   --tg-content-safe-area-inset-* (висота панелі «Назад / ⌄ ⋮»). */
+:root {
+    --app-top-inset: calc(
+        var(--tg-safe-area-inset-top, env(safe-area-inset-top, 0px)) +
+        var(--tg-content-safe-area-inset-top, 0px)
+    );
+    --app-bottom-inset: var(--tg-safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
+}
+
+.header {
+    padding-top: calc(8px + var(--app-top-inset));
+}
+
+#groupSelectScreen,
+body.group-select-mode #groupSelectScreen {
+    padding-top: calc(24px + var(--app-top-inset));
+}
+
+.bottom-nav {
+    padding-bottom: calc(6px + var(--app-bottom-inset));
+}
+
+.app-toast {
+    bottom: calc(88px + var(--app-bottom-inset));
+}

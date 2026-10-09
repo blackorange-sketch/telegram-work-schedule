@@ -919,7 +919,8 @@ function renderSchedule() {
             cell.className = "reserve";
             const badge = document.createElement("span");
             badge.className = "reserve-badge";
-            badge.textContent = "R";
+            badge.textContent = "PP";
+            badge.title = "Paleciak i podmiany";
             cell.appendChild(badge);
             cell.onclick = async () => {
                 const weekStart = formatDate(getWeekStart());
@@ -1906,7 +1907,8 @@ async function loadSelectedGroupStations() {
         `[data-exotec-group="${CSS.escape(selectedExotecGroup)}"]`
     );
     const description = groupButton?.querySelector("span");
-    if (description) {
+    const groupInfo = availableWorkGroups.find(item => item.slug === selectedExotecGroup);
+    if (description && !(groupInfo && groupInfo.stations_text)) {
         const numbers = getSelectedExotecStationNumbers();
         description.textContent = numbers.length
             ? `Станції: ${numbers.join(", ")}`
@@ -1936,7 +1938,9 @@ async function loadAvailableWorkGroups() {
         title.textContent = group.name;
 
         const description = document.createElement("span");
-        description.textContent = "Станції…";
+        description.textContent = group.stations_text
+            ? `Станції: ${group.stations_text} (${group.stations.length})`
+            : "Станцій немає";
 
         button.append(title, description);
         list.appendChild(button);
@@ -2188,6 +2192,18 @@ function renderLunchScreen() {
 
     screen.innerHTML = `
         <section class="card lunch-card">
+            <div class="card-title">⏰ Початок обіду за змінами</div>
+            <div class="lunch-hint">
+                Наступні групи обідають кожні ${settings.interval_minutes || 30} хв.
+                Час однаковий для всіх бригад групи й діє для всіх тижнів.
+            </div>
+            <div class="lunch-shifts">${shiftRows}</div>
+            <button type="button" class="add-worker-button lunch-save-times">
+                Зберегти час
+            </button>
+        </section>
+
+        <section class="card lunch-card">
             <div class="card-title">🍽 Обіди</div>
 
             <div class="worker-team-tabs" role="tablist" aria-label="Бригада">
@@ -2211,18 +2227,6 @@ function renderLunchScreen() {
 
             <button type="button" class="add-worker-button lunch-save-team">
                 Зберегти обіди бригади ${lunchTeam}
-            </button>
-        </section>
-
-        <section class="card lunch-card">
-            <div class="card-title">⏰ Початок обіду за змінами</div>
-            <div class="lunch-hint">
-                Наступні групи обідають кожні ${settings.interval_minutes || 30} хв.
-                Час однаковий для всіх бригад групи й діє для всіх тижнів.
-            </div>
-            <div class="lunch-shifts">${shiftRows}</div>
-            <button type="button" class="add-worker-button lunch-save-times">
-                Зберегти час
             </button>
         </section>
 
