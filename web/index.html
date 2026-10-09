@@ -71,6 +71,14 @@
 
     <!-- SCHEDULE -->
     <main>
+        <!-- Поточна група: видно на всіх екранах, крім вибору групи -->
+        <div class="exotec-current-bar">
+            <button type="button" id="changeExotecGroupButton">
+                ← Exotec
+            </button>
+            <strong id="currentExotecGroupLabel">Exotec 2</strong>
+        </div>
+
         <div id="groupSelectScreen" hidden>
             <section class="group-select">
                 <h2>Exotec</h2>
@@ -80,12 +88,6 @@
         </div>
 
         <div id="scheduleScreen">
-        <div class="exotec-current-bar">
-            <button type="button" id="changeExotecGroupButton">
-                ← Exotec
-            </button>
-            <strong id="currentExotecGroupLabel">Exotec 2</strong>
-        </div>
 
         <div id="scheduleTeamTabs" class="worker-team-tabs" role="tablist" aria-label="Бригада">
             <button type="button" data-schedule-team="A" class="worker-team-tab active">Бригада A</button>

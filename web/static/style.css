@@ -1979,3 +1979,8 @@ body.group-select-mode #groupSelectScreen {
 .app-toast {
     bottom: calc(88px + var(--app-bottom-inset));
 }
+
+/* Рядок поточної групи спільний для всіх екранів */
+body.group-select-mode .exotec-current-bar {
+    display: none;
+}
