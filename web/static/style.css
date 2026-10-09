@@ -1114,22 +1114,6 @@ main {
     background: #b91c1c;
 }
 
-#copyJsLogHeaderButton {
-    margin-left: auto;
-    min-height: 36px;
-    padding: 7px 10px;
-    border: 0;
-    border-radius: 9px;
-    background: var(--accent);
-    color: #fff;
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
-}
-
-#copyJsLogHeaderButton:active {
-    opacity: 0.8;
-}
 
 /* =========================
    EXOTEC GROUP SELECTOR
@@ -1682,4 +1666,288 @@ body.group-select-mode #groupSelectScreen {
 .rotation-card .rotation-button {
     align-self: stretch;
     background: var(--bg);
+}
+
+/* =====================================================================
+   UI-оновлення: компактний розклад, панель дій, toast
+   (блок навмисно в кінці файлу, щоб перекривати старі правила)
+   ===================================================================== */
+
+/* --- Шапка компактніша --- */
+.header {
+    padding: calc(8px + env(safe-area-inset-top)) 16px 8px;
+}
+
+.title {
+    font-size: 20px;
+}
+
+#todayDate {
+    color: var(--secondary);
+    font-size: 13px;
+}
+
+.week-navigation {
+    margin: 8px 12px;
+    padding: 4px;
+}
+
+.week-navigation button {
+    width: 38px;
+    height: 38px;
+    font-size: 24px;
+}
+
+.exotec-current-bar {
+    padding: 2px 4px;
+}
+
+#scheduleTeamTabs {
+    margin: 4px 0 6px;
+    gap: 6px;
+}
+
+#scheduleTeamTabs .worker-team-tab {
+    padding: 8px 4px;
+    font-size: 14px;
+}
+
+#scheduleTeamInfo {
+    margin: 4px 0 8px;
+    font-size: 13px;
+}
+
+/* --- Панель дій над таблицею --- */
+.schedule-toolbar {
+    position: relative;
+    display: flex;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+
+.schedule-toolbar > button {
+    min-height: 40px;
+    border: 0;
+    border-radius: 12px;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.toolbar-primary {
+    flex: 1.4;
+    background: var(--accent);
+    color: #ffffff;
+}
+
+.toolbar-secondary {
+    flex: 1;
+    background: var(--card);
+    color: var(--accent);
+}
+
+.toolbar-more {
+    width: 44px;
+    background: var(--card);
+    color: var(--text);
+    font-size: 20px !important;
+    line-height: 1;
+}
+
+.toolbar-primary:active,
+.toolbar-secondary:active,
+.toolbar-more:active {
+    opacity: 0.7;
+}
+
+.toolbar-menu {
+    position: absolute;
+    top: calc(100% + 4px);
+    right: 0;
+    z-index: 50;
+    display: flex;
+    flex-direction: column;
+    min-width: 240px;
+    padding: 6px;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+}
+
+.toolbar-menu[hidden] {
+    display: none;
+}
+
+.toolbar-menu button {
+    min-height: 44px;
+    padding: 10px 12px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    color: var(--text);
+    font: inherit;
+    font-size: 14px;
+    text-align: left;
+}
+
+.toolbar-menu button:active {
+    background: var(--bg);
+}
+
+.toolbar-menu .toolbar-menu-danger {
+    color: #d92d20;
+}
+
+/* --- Компактна таблиця: Mon–Fri + Lunch на ширині екрана, Sat/Sun праворуч --- */
+.schedule-wrapper {
+    --name-w: 78px;
+    --lunch-w: 50px;
+    --day-w: max(40px, calc((100vw - 26px - var(--name-w) - var(--lunch-w)) / 5));
+}
+
+.schedule {
+    font-size: 13px;
+}
+
+.schedule th,
+.schedule td {
+    height: 40px;
+    padding: 2px 3px;
+}
+
+.schedule th {
+    height: 38px;
+    padding: 3px 2px;
+    font-size: 11px;
+    line-height: 1.1;
+}
+
+.schedule th .day-name,
+.schedule th .day-date {
+    display: block;
+}
+
+.schedule th .day-name {
+    font-weight: 600;
+}
+
+.schedule th .day-date {
+    color: var(--secondary);
+    font-weight: 500;
+}
+
+.name-column {
+    width: var(--name-w);
+    min-width: var(--name-w);
+    max-width: var(--name-w);
+    padding-left: 8px !important;
+}
+
+.schedule td.name {
+    font-size: 12px;
+    line-height: 1.15;
+}
+
+.schedule td.name .name-text {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+    overflow-wrap: anywhere;
+}
+
+.schedule th:not(.name-column):not(.lunch-column),
+.schedule td:not(.name-column):not(.lunch-column) {
+    width: var(--day-w);
+    min-width: var(--day-w);
+    max-width: var(--day-w);
+}
+
+.lunch-column {
+    width: var(--lunch-w);
+    min-width: var(--lunch-w);
+    max-width: var(--lunch-w);
+}
+
+.schedule td.lunch {
+    font-size: 12px;
+}
+
+.station {
+    width: 30px;
+    height: 30px;
+    border-radius: 9px;
+    font-size: 14px;
+}
+
+.reserve-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 9px;
+    background: rgba(36, 129, 204, 0.12);
+    color: var(--accent);
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.schedule td.reserve {
+    cursor: pointer;
+}
+
+/* --- Toast --- */
+.app-toast {
+    position: fixed;
+    left: 50%;
+    bottom: calc(88px + env(safe-area-inset-bottom));
+    z-index: 300;
+    max-width: calc(100% - 32px);
+    padding: 11px 16px;
+    border-radius: 14px;
+    background: rgba(23, 23, 23, 0.92);
+    color: #ffffff;
+    font-size: 14px;
+    line-height: 1.35;
+    text-align: center;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+    opacity: 0;
+    pointer-events: none;
+    transform: translate(-50%, 12px);
+    transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.app-toast.visible {
+    opacity: 1;
+    transform: translate(-50%, 0);
+}
+
+.app-toast.error {
+    background: rgba(180, 35, 24, 0.95);
+}
+
+#scheduleTeamInfo {
+    flex-wrap: nowrap;
+    min-height: 32px;
+}
+
+#scheduleTeamInfo .rotation-button.icon-only {
+    flex: none;
+    width: 32px;
+    min-height: 32px;
+    padding: 0;
+    font-size: 15px;
+}
+
+.schedule th,
+.schedule td {
+    height: 38px;
+}
+
+.station,
+.reserve-badge {
+    width: 28px;
+    height: 28px;
 }

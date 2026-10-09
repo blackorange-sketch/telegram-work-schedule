@@ -24,7 +24,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 import uvicorn
@@ -205,9 +205,29 @@ app.mount(
 )
 
 
+def _compute_asset_version():
+    # Хеш вмісту статичних файлів: після кожного деплою з новим кодом
+    # Telegram отримує нові адреси й не показує застарілий інтерфейс.
+    import hashlib
+
+    digest = hashlib.sha1()
+    for name in ("app.js", "style.css", "workers.js"):
+        try:
+            with open(os.path.join("web", "static", name), "rb") as file:
+                digest.update(file.read())
+        except OSError:
+            pass
+    return digest.hexdigest()[:10]
+
+
+ASSET_VERSION = _compute_asset_version()
+
+
 @app.get("/")
 async def index():
-    return FileResponse("web/index.html")
+    with open("web/index.html", encoding="utf-8") as file:
+        html = file.read().replace("__ASSET_VERSION__", ASSET_VERSION)
+    return HTMLResponse(html, headers={"Cache-Control": "no-cache"})
 
 
 # =========================

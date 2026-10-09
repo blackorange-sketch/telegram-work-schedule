@@ -273,6 +273,7 @@ async function saveWorker() {
         }
 
         await loadWorkers();
+        if (window.showToast) window.showToast(editing ? "Працівника змінено" : "Працівника додано");
     } catch (error) {
         console.error("Помилка збереження працівника:", error);
         alert(editing

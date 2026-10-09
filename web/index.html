@@ -15,7 +15,7 @@
 
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
-    <link rel="stylesheet" href="/static/style.css?v=9">
+    <link rel="stylesheet" href="/static/style.css?v=__ASSET_VERSION__">
     <style>
         .app {
             display: none;
@@ -52,7 +52,6 @@
         <div class="title">Schedule</div>
 
         <div id="todayDate"></div>
-        <button id="copyJsLogHeaderButton" type="button">📋 Лог</button>
 
 
     </header>
@@ -94,6 +93,16 @@
             <button type="button" data-schedule-team="C" class="worker-team-tab">Бригада C</button>
         </div>
         <div id="scheduleTeamInfo" class="workers-team-label"></div>
+
+        <div class="schedule-toolbar">
+            <button id="generateScheduleButton" type="button" class="toolbar-primary">⚙️ Згенерувати</button>
+            <button id="exportScheduleButton" type="button" class="toolbar-secondary">📤 Експорт</button>
+            <button id="scheduleMenuButton" type="button" class="toolbar-more" aria-label="Ще дії" aria-haspopup="true">⋯</button>
+            <div id="scheduleMenu" class="toolbar-menu" hidden>
+                <button id="clearScheduleButton" type="button" class="toolbar-menu-danger">🗑️ Очистити графік тижня</button>
+                <button id="copyJsLogHeaderButton" type="button">📋 Скопіювати діагностичний лог</button>
+            </div>
+        </div>
 
 
         <section class="schedule-wrapper">
@@ -141,25 +150,16 @@
         </section>
 
 
-        <button id="exportScheduleButton" class="add-worker-button">📤 Export</button>
-
-<button id="generateScheduleButton" class="add-worker-button">
-            ⚙️ Згенерувати розклад
-        </button>
-
-        <button id="clearScheduleButton" class="clear-schedule-button">
-            🗑️ Очистити графік
-        </button>
 
 
 
         <div id="exportModal" class="station-modal hidden">
             <div class="station-modal-box">
-                <div class="station-modal-title">Export schedule</div>
+                <div class="station-modal-title">Експорт розкладу</div>
                 <div class="station-worker-list">
-                    <button id="saveScheduleImageButton" class="station-choice-option">📥 Save image</button>
-                    <button id="shareScheduleImageButton" class="station-choice-option">📤 Share image</button>
-                    <button id="cancelExportButton" class="station-cancel-button">Cancel</button>
+                    <button id="saveScheduleImageButton" class="station-choice-option">📥 Зберегти зображення</button>
+                    <button id="shareScheduleImageButton" class="station-choice-option">📤 Надіслати в Telegram</button>
+                    <button id="cancelExportButton" class="station-cancel-button">Скасувати</button>
                 </div>
             </div>
         </div>
@@ -203,7 +203,7 @@
 
 
 
-<script src="/static/app.js?v=9"></script>
+<script src="/static/app.js?v=__ASSET_VERSION__"></script>
 
 </body>
 </html>

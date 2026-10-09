@@ -1,3 +1,12 @@
+// Версія статичних файлів (сервер підставляє хеш у адресу app.js).
+const ASSET_VERSION = (() => {
+    try {
+        return new URL(document.currentScript.src).searchParams.get("v") || String(Date.now());
+    } catch (error) {
+        return String(Date.now());
+    }
+})();
+
 const appLog = [];
 const appLogStartedAt = Date.now();
 
@@ -879,7 +888,12 @@ function renderSchedule() {
 
         const name = document.createElement("td");
         name.className = "name name-column";
-        name.textContent = worker.name;
+        name.dataset.export = worker.name;
+        name.title = worker.name;
+        const nameText = document.createElement("span");
+        nameText.className = "name-text";
+        nameText.textContent = worker.name;
+        name.appendChild(nameText);
         row.appendChild(name);
 
         for (let dayOffset = 0; dayOffset < 7; dayOffset++) {
@@ -903,6 +917,10 @@ function renderSchedule() {
             } else if (isReserve) {
             cell.textContent = "";
             cell.className = "reserve";
+            const badge = document.createElement("span");
+            badge.className = "reserve-badge";
+            badge.textContent = "R";
+            cell.appendChild(badge);
             cell.onclick = async () => {
                 const weekStart = formatDate(getWeekStart());
 
@@ -991,7 +1009,8 @@ function updateScheduleDayHeaders() {
         if (element) {
             const day = String(date.getDate()).padStart(2, "0");
             const month = String(date.getMonth() + 1).padStart(2, "0");
-            element.textContent = `${name} ${day}.${month}`;
+            element.innerHTML = `<span class="day-name">${name}</span><span class="day-date">${day}</span>`;
+            element.dataset.export = `${name} ${day}.${month}`;
         }
     });
 }
@@ -1040,7 +1059,7 @@ function preloadWorkersScript() {
     appLogEvent("WORKERS SCRIPT PRELOAD START");
     workersScriptPromise = new Promise((resolve, reject) => {
         const script = document.createElement("script");
-        script.src = "/static/workers.js?v=2";
+        script.src = `/static/workers.js?v=${ASSET_VERSION}`;
         script.onload = () => {
             appLogEvent("WORKERS SCRIPT PRELOAD SUCCESS");
             resolve();
@@ -1176,7 +1195,10 @@ function updateScheduleTeamTabs() {
         const button = document.createElement("button");
         button.type = "button";
         button.className = "rotation-button";
-        button.textContent = shift ? "⚙️ Ротація (усі групи)" : "⚙️ Налаштувати ротацію";
+        button.textContent = shift ? "⚙️" : "⚙️ Налаштувати ротацію";
+        button.title = "Ротація змін (для всіх груп)";
+        button.setAttribute("aria-label", "Ротація змін (для всіх груп)");
+        button.classList.toggle("icon-only", !!shift);
         button.onclick = configureGroupRotation;
         info.append(text, button);
     }
@@ -1237,12 +1259,9 @@ async function configureGroupRotation() {
     }
 
     if (slots) {
-        alert(
-            "Ротацію збережено для всіх груп. Цього тижня:\n" +
-            ["A", "B", "C"]
-                .map(team => `Бригада ${team} — зміна ${slots[team]} (${SHIFT_HOURS[slots[team]]})`)
-                .join("\n") +
-            "\n\nНа наступних тижнях зміни чергуються автоматично."
+        showToast(
+            "Ротацію збережено: " +
+            ["A", "B", "C"].map(team => `${team} — ${slots[team]}`).join(", ")
         );
     }
     return true;
@@ -1369,7 +1388,7 @@ async function exportScheduleImage(mode) {
             ctx.fillStyle = "#111827";
             ctx.font = rowIndex === 0 ? "bold 20px sans-serif" : "bold 22px sans-serif";
 
-            const text = cell.textContent.trim();
+            const text = (cell.dataset.export || cell.textContent).trim();
             const lines = text.split(/\n+/).map(line => line.trim()).filter(Boolean);
 
             lines.slice(0, 2).forEach((line, index) => {
@@ -1855,6 +1874,7 @@ function showScreen(screenId) {
     document.querySelectorAll("main > div[id$='Screen']").forEach(screen => {
         screen.hidden = screen.id !== screenId;
     });
+    updateTelegramBackButton(screenId);
 
     document.body.classList.toggle("group-select-mode", screenId === "groupSelectScreen");
 }
@@ -2370,7 +2390,7 @@ async function saveLunchTeam() {
     }
 
     await reloadLunchAfterSave();
-    alert(`Обіди бригади ${lunchTeam} збережено`);
+    showToast(`Обіди бригади ${lunchTeam} збережено`);
 }
 
 async function saveLunchStartTimes() {
@@ -2402,7 +2422,7 @@ async function saveLunchStartTimes() {
         lunchDraftDirty = true;
         renderLunchScreen();
     }
-    alert("Час обіду збережено");
+    showToast("Час обіду збережено");
 }
 
 
@@ -2933,3 +2953,110 @@ async function loadRotationCard() {
 
     return data ? data.team_slots : null;
 }
+
+
+// =========================
+// Короткі повідомлення (toast) і вібровідгук Telegram
+// =========================
+
+function haptic(type) {
+    try {
+        const feedback = window.Telegram?.WebApp?.HapticFeedback;
+        if (!feedback) return;
+        if (type === "error" || type === "success" || type === "warning") {
+            feedback.notificationOccurred(type);
+        } else {
+            feedback.impactOccurred("light");
+        }
+    } catch (error) {
+        // Старі версії Telegram без HapticFeedback — просто без вібрації.
+    }
+}
+
+let toastTimer = null;
+
+function showToast(message, type = "success") {
+    let toast = document.getElementById("appToast");
+    if (!toast) {
+        toast = document.createElement("div");
+        toast.id = "appToast";
+        toast.className = "app-toast";
+        toast.setAttribute("role", "status");
+        toast.setAttribute("aria-live", "polite");
+        document.body.appendChild(toast);
+    }
+    toast.textContent = message;
+    toast.classList.toggle("error", type === "error");
+    toast.classList.add("visible");
+    haptic(type);
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toast.classList.remove("visible"), 2600);
+}
+window.showToast = showToast;
+
+// =========================
+// Меню «⋯» над розкладом
+// =========================
+
+(function bindScheduleMenu() {
+    const button = document.getElementById("scheduleMenuButton");
+    const menu = document.getElementById("scheduleMenu");
+    if (!button || !menu) return;
+
+    const close = () => {
+        menu.hidden = true;
+        button.setAttribute("aria-expanded", "false");
+    };
+
+    button.addEventListener("click", event => {
+        event.stopPropagation();
+        menu.hidden = !menu.hidden;
+        button.setAttribute("aria-expanded", menu.hidden ? "false" : "true");
+    });
+    menu.addEventListener("click", close);
+    document.addEventListener("click", event => {
+        if (!menu.hidden && !menu.contains(event.target) && event.target !== button) {
+            close();
+        }
+    });
+})();
+
+// =========================
+// Системна кнопка «Назад» Telegram: з будь-якого екрана — до вибору групи
+// =========================
+
+function updateTelegramBackButton(screenId) {
+    const back = window.Telegram?.WebApp?.BackButton;
+    if (!back) return;
+    try {
+        if (screenId === "groupSelectScreen") {
+            back.hide();
+        } else {
+            back.show();
+        }
+    } catch (error) {
+        // BackButton з'явився в Telegram 6.1; на старіших просто немає кнопки.
+    }
+}
+
+(function bindTelegramBackButton() {
+    const back = window.Telegram?.WebApp?.BackButton;
+    if (!back || !back.onClick) return;
+    back.onClick(() => {
+        const openModal = document.querySelector(".station-modal:not(.hidden), #groupFormModal");
+        if (openModal) {
+            if (openModal.id === "groupFormModal") {
+                openModal.remove();
+            } else {
+                openModal.classList.add("hidden");
+            }
+            return;
+        }
+        const adminPanel = document.getElementById("groupAdminPanel");
+        if (adminPanel && !adminPanel.hidden) {
+            closeGroupAdmin();
+            return;
+        }
+        showExotecGroupSelector();
+    });
+})();
