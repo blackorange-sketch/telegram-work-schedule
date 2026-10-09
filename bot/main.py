@@ -535,6 +535,7 @@ async def schedule_assignment_delete(
         week_start = date.fromisoformat(data.get("week_start"))
         work_date = date.fromisoformat(data.get("work_date"))
         station = int(data.get("station"))
+        worker_id = int(data.get("worker_id"))
     except (TypeError, ValueError):
         raise HTTPException(status_code=400, detail="Некоректні дані призначення")
 
@@ -545,7 +546,7 @@ async def schedule_assignment_delete(
 
     week = await get_or_create_schedule_week(week_start)
     assignment = await delete_group_schedule_assignment(
-        week["id"], work_date, station, group
+        week["id"], work_date, station, group, worker_id
     )
     if assignment is None:
         raise HTTPException(status_code=404, detail="Призначення не знайдено")

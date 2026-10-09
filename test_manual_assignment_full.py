@@ -252,12 +252,16 @@ async def main():
 
         print("\n===== T9: зняття працівника зі станції =====")
         deleted = await db.delete_group_schedule_assignment(
-            week_id, WORK_DATE, 2, SLUG
+            week_id, WORK_DATE, 2, SLUG, w["A1"]
         )
         print("  Повернуто:", deleted)
+        check(
+            deleted is not None and deleted["worker_id"] == w["A1"],
+            "повернуто запис саме A1",
+        )
         pos, reserve = await state()
         on_2 = sorted(n for n, s in pos.items() if s == 2)
-        check(len(on_2) == 1, f"знято лише одного зі станції 2 (лишилось: {on_2})")
+        check(on_2 == ["B1"], f"знято лише A1, B1 лишився на станції 2 ({on_2})")
 
         print("\n===== T10: ізоляція інших груп і тижнів =====")
         check(await outside() == before_outside, "записи поза зоною не змінились")

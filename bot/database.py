@@ -1824,6 +1824,7 @@ async def delete_group_schedule_assignment(
     work_date,
     station: int,
     group_slug: str,
+    worker_id: int,
 ):
     from datetime import date as date_type
 
@@ -1831,6 +1832,8 @@ async def delete_group_schedule_assignment(
         work_date = date_type.fromisoformat(work_date)
 
     async with _pool.acquire() as conn:
+        # Знімаємо лише одного працівника: на станції в той самий день
+        # можуть стояти працівники інших команд (змін).
         row = await conn.fetchrow(
             """
             DELETE FROM group_schedule_assignments a
@@ -1842,10 +1845,11 @@ async def delete_group_schedule_assignment(
               AND a.week_id = $2
               AND a.work_date = $3
               AND s.station_number = $4
+              AND a.worker_id = $5
             RETURNING a.id, a.week_id, a.work_date, a.worker_id,
                       s.station_number AS station,
                       a.shift_slot AS shift, a.team_code
             """,
-            group_slug, week_id, work_date, station,
+            group_slug, week_id, work_date, station, worker_id,
         )
         return dict(row) if row else None

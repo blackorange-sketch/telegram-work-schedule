@@ -444,7 +444,7 @@ async function loadScheduleAssignments() {
 async function saveScheduleAssignment(assignment, workDate) {
     const weekStart = formatDate(getWeekStart());
 
-    const response = await fetch("/api/schedule/assignment", {
+    const response = await fetch(`/api/schedule/assignment?group=${encodeURIComponent(selectedExotecGroup)}`, {
         method: "PUT",
         headers: {
             "Content-Type": "application/json"
@@ -461,7 +461,13 @@ async function saveScheduleAssignment(assignment, workDate) {
 
     if (!response.ok) {
         const errorText = await response.text();
-        alert(`Не вдалося зберегти зміну (${response.status})\n${errorText}`);
+        let message = errorText;
+        try {
+            message = JSON.parse(errorText).detail || errorText;
+        } catch (error) {
+            // Відповідь не JSON — показуємо як є.
+        }
+        alert(`Не вдалося зберегти зміну (${response.status})\n${message}`);
         return false;
     }
 
@@ -525,7 +531,7 @@ function openStationChoiceModal(worker, workDate, currentAssignment = null) {
     reserveButton.textContent = "Встановити Reserve";
 
     reserveButton.onclick = async () => {
-        const response = await fetch("/api/schedule/reserve", {
+        const response = await fetch(`/api/schedule/reserve?group=${encodeURIComponent(selectedExotecGroup)}`, {
             method: "PUT",
             headers: {
                 "Content-Type": "application/json"
@@ -650,7 +656,7 @@ function openStationChoiceModal(worker, workDate, currentAssignment = null) {
         clearButton.onclick = async () => {
             const weekStart = formatDate(getWeekStart());
 
-            const response = await fetch("/api/schedule/assignment", {
+            const response = await fetch(`/api/schedule/assignment?group=${encodeURIComponent(selectedExotecGroup)}`, {
                 method: "DELETE",
                 headers: {
                     "Content-Type": "application/json"
@@ -659,6 +665,7 @@ function openStationChoiceModal(worker, workDate, currentAssignment = null) {
                     week_start: weekStart,
                     work_date: workDate,
                     station: currentAssignment.station,
+                    worker_id: currentAssignment.worker_id,
                     group: selectedExotecGroup
                 })
             });
