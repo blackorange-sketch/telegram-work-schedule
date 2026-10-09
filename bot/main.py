@@ -21,6 +21,8 @@ from aiogram.types import (
 
 from dotenv import load_dotenv
 
+load_dotenv()
+
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -28,7 +30,16 @@ from fastapi.staticfiles import StaticFiles
 import uvicorn
 
 from bot.database import (
+    get_group_team_shift_slots,
+    get_group_schedule_assignments,
+    get_group_schedule_reserves,
+    generate_group_schedule_assignments,
     init_db,
+    get_group_workers,
+    add_group_worker,
+    update_group_worker,
+    set_group_worker_reserve,
+    deactivate_group_worker,
     get_workers,
     add_worker,
     update_worker,
@@ -37,6 +48,9 @@ from bot.database import (
     get_schedule_settings,
     set_schedule_settings,
     get_shift_for_week,
+    get_group_schedule_settings,
+    set_group_schedule_settings,
+    get_group_shift_for_week,
     get_or_create_schedule_week,
     create_schedule_days,
     update_schedule_day,
@@ -58,8 +72,6 @@ from bot.database import (
 
 )
 
-
-load_dotenv()
 
 TOKEN = os.getenv("BOT_TOKEN")
 WEB_APP_URL = os.getenv("WEB_APP_URL")
@@ -190,30 +202,71 @@ async def auth_me(request: Request):
     return {"authorized": True, "user_id": user["id"]}
 
 
+@app.get("/api/groups")
+async def api_get_groups():
+    from bot.database import get_work_groups
+    return {"groups": await get_work_groups()}
+
+
+@app.get("/api/groups/{group_slug}/stations")
+async def api_get_group_stations(group_slug: str):
+    from bot.database import get_work_group_stations, get_work_groups
+
+    groups = await get_work_groups()
+    group = next((g for g in groups if g["slug"] == group_slug), None)
+    if group is None:
+        raise HTTPException(status_code=404, detail="Групу не знайдено")
+
+    stations = await get_work_group_stations(group_slug)
+    return {"group": group, "stations": stations}
+
+
+
+async def validate_worker_group(group: str):
+    from bot.database import get_work_groups
+
+    groups = await get_work_groups()
+    if not any(item["slug"] == group for item in groups):
+        raise HTTPException(status_code=404, detail="Групу не знайдено")
+    return group
+
+
 @app.get("/api/workers")
-async def workers_list(group: str = "exotec_2"):
-    group = validate_exotec_group(group)
-    return await get_workers(group)
+async def workers_list(
+    group: str = "exotec_2",
+    team_code: str | None = None,
+):
+    group = await validate_worker_group(group)
+    if team_code is not None:
+        team_code = team_code.strip().upper()
+        if team_code not in ("A", "B", "C"):
+            raise HTTPException(
+                status_code=400,
+                detail="Бригада має бути A, B або C",
+            )
+    return await get_group_workers(group, team_code)
 
 
 @app.post("/api/workers")
 async def workers_add(data: dict, group: str = "exotec_2"):
     name = str(data.get("name", "")).strip()
+    team_code = str(data.get("team_code", "A")).strip().upper()
+    is_reserve = data.get("is_reserve", False)
+    if not isinstance(is_reserve, bool):
+        raise HTTPException(
+            status_code=400,
+            detail="is_reserve має бути true або false",
+        )
 
     if not name:
-        raise HTTPException(
-            status_code=400,
-            detail="Ім'я не може бути порожнім",
-        )
-
+        raise HTTPException(status_code=400, detail="Ім'я не може бути порожнім")
     if len(name) > 100:
-        raise HTTPException(
-            status_code=400,
-            detail="Ім'я занадто довге",
-        )
+        raise HTTPException(status_code=400, detail="Ім'я занадто довге")
+    if team_code not in ("A", "B", "C"):
+        raise HTTPException(status_code=400, detail="Бригада має бути A, B або C")
 
-    group = validate_exotec_group(group)
-    return await add_worker(name, group)
+    group = await validate_worker_group(group)
+    return await add_group_worker(group, name, team_code, is_reserve)
 
 
 @app.put("/api/workers/{worker_id}")
@@ -223,46 +276,51 @@ async def worker_update(
     group: str = "exotec_2",
 ):
     name = str(data.get("name", "")).strip()
-
     if not name:
-        raise HTTPException(
-            status_code=400,
-            detail="Ім'я не може бути порожнім",
-        )
-
+        raise HTTPException(status_code=400, detail="Ім'я не може бути порожнім")
     if len(name) > 100:
+        raise HTTPException(status_code=400, detail="Ім'я занадто довге")
+
+    group = await validate_worker_group(group)
+    team_code = data.get("team_code")
+
+    if team_code is None:
+        existing = await get_group_workers(group)
+        worker = next(
+            (item for item in existing if item["id"] == worker_id),
+            None,
+        )
+        if worker is None:
+            raise HTTPException(status_code=404, detail="Працівника не знайдено")
+        team_code = worker["team_code"]
+
+    team_code = str(team_code).strip().upper()
+    if team_code not in ("A", "B", "C"):
+        raise HTTPException(status_code=400, detail="Бригада має бути A, B або C")
+
+    is_reserve = data.get("is_reserve", False)
+    if not isinstance(is_reserve, bool):
         raise HTTPException(
             status_code=400,
-            detail="Ім'я занадто довге",
+            detail="is_reserve має бути true або false",
         )
 
-    group = validate_exotec_group(group)
-    worker = await update_worker(worker_id, name, group)
-
+    worker = await update_group_worker(
+        group, worker_id, name, team_code, is_reserve
+    )
     if not worker:
-        raise HTTPException(
-            status_code=404,
-            detail="Працівника не знайдено",
-        )
-
+        raise HTTPException(status_code=404, detail="Працівника не знайдено")
     return worker
 
 
 @app.delete("/api/workers/{worker_id}")
-async def worker_delete(
-    worker_id: int,
-    group: str = "exotec_2",
-):
-    group = validate_exotec_group(group)
-    worker = await deactivate_worker(worker_id, group)
-
+async def worker_delete(worker_id: int, group: str = "exotec_2"):
+    group = await validate_worker_group(group)
+    worker = await deactivate_group_worker(group, worker_id)
     if not worker:
-        raise HTTPException(
-            status_code=404,
-            detail="Працівника не знайдено",
-        )
-
+        raise HTTPException(status_code=404, detail="Працівника не знайдено")
     return worker
+
 
 @app.put("/api/workers/{worker_id}/reserve")
 async def worker_reserve(
@@ -270,26 +328,31 @@ async def worker_reserve(
     data: dict,
     group: str = "exotec_2",
 ):
-    is_reserve = bool(data.get("is_reserve", False))
-    group = validate_exotec_group(group)
-    worker = await set_worker_reserve(worker_id, is_reserve, group)
-
-    if not worker:
+    is_reserve = data.get("is_reserve", False)
+    if not isinstance(is_reserve, bool):
         raise HTTPException(
-            status_code=404,
-            detail="Працівника не знайдено",
+            status_code=400,
+            detail="is_reserve має бути true або false",
         )
 
+    group = await validate_worker_group(group)
+    worker = await set_group_worker_reserve(group, worker_id, is_reserve)
+    if not worker:
+        raise HTTPException(status_code=404, detail="Працівника не знайдено")
     return worker
+
+
 @app.get("/api/schedule/shift")
-async def schedule_shift(week_start: str):
+async def schedule_shift(week_start: str, group: str = "exotec_2"):
+    group = await validate_worker_group(group)
+
     try:
         from datetime import date
         week_start = date.fromisoformat(week_start)
     except (TypeError, ValueError):
         raise HTTPException(status_code=400, detail="Некоректна дата тижня")
 
-    shift = await get_shift_for_week(week_start)
+    shift = await get_group_shift_for_week(group, week_start)
 
     if shift is None:
         raise HTTPException(status_code=404, detail="Налаштування зміни ще не задано")
@@ -297,22 +360,26 @@ async def schedule_shift(week_start: str):
     return {"week_start": week_start.isoformat(), "shift": shift}
 
 
-
-
-
 # =========================
 # Schedule Settings API
 # =========================
 
 @app.get("/api/schedule/settings")
-async def schedule_settings_get():
-    return await get_schedule_settings()
+async def schedule_settings_get(group: str = "exotec_2"):
+    group = await validate_worker_group(group)
+    settings = await get_group_schedule_settings(group)
+
+    if settings is None:
+        raise HTTPException(status_code=404, detail="Групу не знайдено")
+
+    return settings
 
 
 @app.put("/api/schedule/settings")
-async def schedule_settings_update(data: dict):
+async def schedule_settings_update(data: dict, group: str = "exotec_2"):
+    group = await validate_worker_group(group)
     start_week = data.get("start_week")
-    start_shift = data.get("start_shift")
+    start_shift = data.get("start_shift_slot", data.get("start_shift"))
 
     if not start_week:
         raise HTTPException(status_code=400, detail="Тиждень не вказано")
@@ -331,7 +398,8 @@ async def schedule_settings_update(data: dict):
     except (TypeError, ValueError):
         raise HTTPException(status_code=400, detail="Некоректна дата тижня")
 
-    return await set_schedule_settings(start_week, start_shift)
+    return await set_group_schedule_settings(group, start_week, start_shift)
+
 
 @app.put("/api/lunch/settings")
 async def lunch_settings_update(
@@ -401,7 +469,7 @@ async def schedule_assignments_get(
     week_start: str,
     group: str = "exotec_2",
 ):
-    group = validate_exotec_group(group)
+    group = await validate_worker_group(group)
 
     try:
         from datetime import date
@@ -411,8 +479,8 @@ async def schedule_assignments_get(
 
     week = await get_or_create_schedule_week(week_start)
     assignments, reserves = await asyncio.gather(
-        get_schedule_assignments(week["id"], group),
-        get_schedule_reserves(week["id"], group),
+        get_group_schedule_assignments(week["id"], group),
+        get_group_schedule_reserves(week["id"], group),
     )
 
     return {
@@ -427,42 +495,32 @@ async def schedule_assignment_update(
     data: dict,
     group: str = "exotec_2",
 ):
-    group = validate_exotec_group(group)
-
+    group = await validate_worker_group(group)
     try:
         from datetime import date
-
         week_start = date.fromisoformat(data.get("week_start"))
         work_date = date.fromisoformat(data.get("work_date"))
         worker_id = int(data.get("worker_id"))
         station = int(data.get("station"))
-        shift = int(data.get("shift"))
+        int(data.get("shift", 1))
     except (TypeError, ValueError):
         raise HTTPException(status_code=400, detail="Некоректні дані призначення")
 
-    if station not in EXOTEC_GROUPS[group]:
-        raise HTTPException(status_code=400, detail="Некоректна станція")
-
-    if shift not in (1, 2, 3):
-        raise HTTPException(status_code=400, detail="Некоректна зміна")
+    if week_start.weekday() != 0:
+        raise HTTPException(status_code=400, detail="Дата початку тижня має бути понеділком")
+    if not (week_start <= work_date <= week_start.fromordinal(week_start.toordinal() + 6)):
+        raise HTTPException(status_code=400, detail="Дата не належить до вибраного тижня")
 
     week = await get_or_create_schedule_week(week_start)
-
-    assignment = await set_schedule_assignment(
-        week["id"],
-        work_date,
-        worker_id,
-        station,
-        shift,
-        group,
-    )
+    try:
+        assignment = await set_group_schedule_assignment(
+            week["id"], work_date, worker_id, station, int(data.get("shift", 1)), group
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
     if assignment is None:
-        raise HTTPException(
-            status_code=404,
-            detail="Призначення не знайдено",
-        )
-
+        raise HTTPException(status_code=404, detail="Призначення не знайдено")
     return assignment
 
 
@@ -471,35 +529,26 @@ async def schedule_assignment_delete(
     data: dict,
     group: str = "exotec_2",
 ):
-    group = validate_exotec_group(group)
-
+    group = await validate_worker_group(group)
     try:
         from datetime import date
-
         week_start = date.fromisoformat(data.get("week_start"))
         work_date = date.fromisoformat(data.get("work_date"))
         station = int(data.get("station"))
     except (TypeError, ValueError):
         raise HTTPException(status_code=400, detail="Некоректні дані призначення")
 
-    if station not in EXOTEC_GROUPS[group]:
-        raise HTTPException(status_code=400, detail="Некоректна станція")
+    if week_start.weekday() != 0:
+        raise HTTPException(status_code=400, detail="Дата початку тижня має бути понеділком")
+    if not (week_start <= work_date <= week_start.fromordinal(week_start.toordinal() + 6)):
+        raise HTTPException(status_code=400, detail="Дата не належить до вибраного тижня")
 
     week = await get_or_create_schedule_week(week_start)
-
-    assignment = await delete_schedule_assignment(
-        week["id"],
-        work_date,
-        station,
-        group,
+    assignment = await delete_group_schedule_assignment(
+        week["id"], work_date, station, group
     )
-
     if assignment is None:
-        raise HTTPException(
-            status_code=404,
-            detail="Призначення не знайдено",
-        )
-
+        raise HTTPException(status_code=404, detail="Призначення не знайдено")
     return {"deleted": True, "assignment": assignment}
 
 
@@ -581,52 +630,56 @@ async def schedule_clear(
 
 
 @app.post("/api/schedule/generate")
-async def schedule_generate(
-    data: dict,
-    group: str = "exotec_2",
-):
-    group = validate_exotec_group(group)
+async def schedule_generate(data: dict, group: str = "exotec_2"):
+    group = await validate_worker_group(group)
 
     try:
         from datetime import date
         week_start = date.fromisoformat(data.get("week_start"))
     except (TypeError, ValueError):
-        raise HTTPException(status_code=400, detail="Некоректна дата тижня")
-
-    shift = await get_shift_for_week(week_start)
-
-    if shift is None:
         raise HTTPException(
             status_code=400,
-            detail="Спочатку потрібно налаштувати початкову зміну"
+            detail="Некоректна дата тижня",
+        )
+
+    if week_start.weekday() != 0:
+        raise HTTPException(
+            status_code=400,
+            detail="Дата початку тижня має бути понеділком",
+        )
+
+    shift_slots = await get_group_team_shift_slots(group, week_start)
+    if shift_slots is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Спочатку потрібно налаштувати ротацію групи",
         )
 
     week = await get_or_create_schedule_week(week_start)
 
-    await delete_schedule_assignments_for_week(
-        week["id"],
-        group,
-    )
+    try:
+        generated = await generate_group_schedule_assignments(
+            week["id"],
+            week_start,
+            group,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except RuntimeError as exc:
+        raise HTTPException(status_code=409, detail=str(exc))
 
-    generated = await generate_schedule_assignments(
-        week["id"],
-        week_start,
-        shift,
-        group,
-    )
-
-    assignments = await get_schedule_assignments(
-        week["id"],
-        group,
+    assignments, reserves = await asyncio.gather(
+        get_group_schedule_assignments(week["id"], group),
+        get_group_schedule_reserves(week["id"], group),
     )
 
     return {
         "week": week,
-        "shift": shift,
+        "shift_slots": shift_slots,
         "generated": generated,
-        "assignments": assignments
+        "assignments": assignments,
+        "reserves": reserves,
     }
-
 
 @app.get("/api/schedule/days")
 async def schedule_days_get(week_start: str):

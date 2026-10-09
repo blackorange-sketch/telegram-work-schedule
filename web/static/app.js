@@ -362,15 +362,11 @@ if (tg?.requestFullscreen) {
 }
 
 let selectedExotecGroup = "exotec_2";
+let availableWorkGroups = [];
+let selectedGroupStations = [];
 
-const EXOTEC_STATION_RANGES = {
-    exotec_1: [1, 14],
-    exotec_2: [15, 24],
-    exotec_3: [25, 34],
-};
-
-function getSelectedExotecStationRange() {
-    return EXOTEC_STATION_RANGES[selectedExotecGroup];
+function getSelectedExotecStationNumbers() {
+    return selectedGroupStations.map(station => Number(station.station_number));
 }
 
 let workers = [];
@@ -571,8 +567,7 @@ function openStationChoiceModal(worker, workDate, currentAssignment = null) {
         }
     }
 
-    const [stationStart, stationEnd] = getSelectedExotecStationRange();
-    for (let station = stationStart; station <= stationEnd; station++) {
+    for (const station of getSelectedExotecStationNumbers()) {
         const button = document.createElement("button");
         button.className = "station-choice-option";
         button.textContent = station;
@@ -1067,7 +1062,7 @@ async function loadScheduleDays() {
     const requestWeek = formatDate(getWeekStart());
 
     const response = await fetch(
-        `/api/schedule/days?week_start=${requestWeek}`
+        `/api/schedule/days?week_start=${requestWeek}&group=${encodeURIComponent(selectedExotecGroup)}`
     );
 
     if (!response.ok) {
@@ -1094,7 +1089,7 @@ async function loadScheduleShift() {
     const requestWeek = formatDate(getWeekStart());
 
     const response = await fetch(
-        `/api/schedule/shift?week_start=${requestWeek}`
+        `/api/schedule/shift?week_start=${requestWeek}&group=${encodeURIComponent(selectedExotecGroup)}`
     );
 
     if (!response.ok) {
@@ -1619,7 +1614,7 @@ function bindScheduleButtons() {
         const weekStart = formatDate(getWeekStart());
         const generationNavigationVersion = weekNavigationVersion;
 
-        const settingsResponse = await fetch("/api/schedule/settings");
+        const settingsResponse = await fetch(`/api/schedule/settings?group=${encodeURIComponent(selectedExotecGroup)}`);
 
         if (!settingsResponse.ok) {
             alert("Не вдалося перевірити налаштування зміни");
@@ -1637,7 +1632,7 @@ function bindScheduleButtons() {
                 return;
             }
 
-            const settingsSaveResponse = await fetch("/api/schedule/settings", {
+            const settingsSaveResponse = await fetch(`/api/schedule/settings?group=${encodeURIComponent(selectedExotecGroup)}`, {
                 method: "PUT",
                 headers: {
                     "Content-Type": "application/json"
@@ -1671,7 +1666,7 @@ function bindScheduleButtons() {
             return;
         }
 
-        const response = await fetch("/api/schedule/generate", {
+        const response = await fetch(`/api/schedule/generate?group=${encodeURIComponent(selectedExotecGroup)}`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json"
@@ -1730,20 +1725,82 @@ function saveSelectedExotecGroup() {
 
 function loadSelectedExotecGroup() {
     const savedGroup = localStorage.getItem("selectedExotecGroup");
+    if (savedGroup) selectedExotecGroup = savedGroup;
+}
 
-    if (savedGroup && Object.prototype.hasOwnProperty.call(EXOTEC_STATION_RANGES, savedGroup)) {
-        selectedExotecGroup = savedGroup;
+async function loadSelectedGroupStations() {
+    const response = await fetch(
+        `/api/groups/${encodeURIComponent(selectedExotecGroup)}/stations`
+    );
+    if (!response.ok) {
+        throw new Error(`Помилка завантаження станцій: HTTP ${response.status}`);
+    }
+
+    const data = await response.json();
+    selectedGroupStations = Array.isArray(data.stations) ? data.stations : [];
+
+    const label = document.getElementById("currentExotecGroupLabel");
+    if (label && data.group) label.textContent = data.group.name;
+
+    const groupButton = document.querySelector(
+        `[data-exotec-group="${CSS.escape(selectedExotecGroup)}"]`
+    );
+    const description = groupButton?.querySelector("span");
+    if (description) {
+        const numbers = getSelectedExotecStationNumbers();
+        description.textContent = numbers.length
+            ? `Станції: ${numbers.join(", ")}`
+            : "Станцій немає";
     }
 }
 
-async function selectExotecGroup(group) {
-    if (!Object.prototype.hasOwnProperty.call(EXOTEC_STATION_RANGES, group)) {
-        return;
+async function loadAvailableWorkGroups() {
+    const response = await fetch("/api/groups");
+    if (!response.ok) {
+        throw new Error(`Помилка завантаження груп: HTTP ${response.status}`);
     }
+
+    const data = await response.json();
+    availableWorkGroups = Array.isArray(data.groups) ? data.groups : [];
+
+    const list = document.getElementById("exotecGroupList");
+    if (!list) throw new Error("Не знайдено exotecGroupList");
+
+    list.replaceChildren();
+    for (const group of availableWorkGroups) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.dataset.exotecGroup = group.slug;
+
+        const title = document.createElement("strong");
+        title.textContent = group.name;
+
+        const description = document.createElement("span");
+        description.textContent = "Станції…";
+
+        button.append(title, description);
+        list.appendChild(button);
+    }
+
+    bindExotecGroupSelector();
+
+    if (!availableWorkGroups.some(g => g.slug === selectedExotecGroup)) {
+        selectedExotecGroup =
+            availableWorkGroups.find(g => g.slug === "exotec_2")?.slug
+            || availableWorkGroups[0]?.slug
+            || "";
+    }
+
+    if (selectedExotecGroup) await loadSelectedGroupStations();
+}
+
+async function selectExotecGroup(group) {
+    if (!availableWorkGroups.some(item => item.slug === group)) return;
 
     selectedExotecGroup = group;
     saveSelectedExotecGroup();
     updateCurrentExotecGroupLabel();
+    await loadSelectedGroupStations();
 
     scheduleLoaded = false;
     lunchScreenLoaded = false;
@@ -1771,9 +1828,7 @@ function updateCurrentExotecGroupLabel() {
     if (!label) {
         return;
     }
-
-    const groupNumber = selectedExotecGroup.replace("exotec_", "");
-    label.textContent = `Exotec ${groupNumber}`;
+    label.textContent = availableWorkGroups.find(g => g.slug === selectedExotecGroup)?.name || selectedExotecGroup;
 }
 
 function bindCurrentExotecGroupButton() {
@@ -1790,30 +1845,39 @@ function bindCurrentExotecGroupButton() {
 
 function bindExotecGroupSelector() {
     const groupList = document.getElementById("exotecGroupList");
-
-    if (!groupList) {
+    if (!groupList || groupList.dataset.groupSelectorBound === "true") {
         return;
     }
 
-    groupList.querySelectorAll("[data-exotec-group]").forEach(button => {
-        button.addEventListener("click", () => {
-            selectExotecGroup(button.dataset.exotecGroup).catch(error => {
-                console.error("EXOTEC GROUP SELECT:", error);
-                appLogEvent("EXOTEC GROUP SELECT ERROR: " + (error?.stack || String(error)));
-            });
+    groupList.dataset.groupSelectorBound = "true";
+
+    groupList.addEventListener("click", event => {
+        const button = event.target.closest("[data-exotec-group]");
+        if (!button || !groupList.contains(button)) {
+            return;
+        }
+
+        selectExotecGroup(button.dataset.exotecGroup).catch(error => {
+            console.error("EXOTEC GROUP SELECT:", error);
+            appLogEvent(
+                "EXOTEC GROUP SELECT ERROR: " + (error?.stack || String(error))
+            );
         });
     });
 }
-
 loadSelectedExotecGroup();
-bindExotecGroupSelector();
 bindCurrentExotecGroupButton();
-updateCurrentExotecGroupLabel();
 showExotecGroupSelector();
 
-adminAccessPromise.then(authorized => {
-    if (authorized) {
+adminAccessPromise.then(async authorized => {
+    if (!authorized) return;
+    try {
+        await loadAvailableWorkGroups();
+        updateCurrentExotecGroupLabel();
         showExotecGroupSelector();
+    } catch (error) {
+        console.error("LOAD GROUPS ERROR:", error);
+        appLogEvent("LOAD GROUPS ERROR: " + (error?.stack || String(error)));
     }
 });
 

@@ -209,6 +209,155 @@ async def init_db():
 
 
 
+async def get_work_groups(active_only: bool = True):
+    async with _pool.acquire() as conn:
+        rows = await conn.fetch(
+            """
+            SELECT id, slug, name, active, sort_order
+            FROM work_groups
+            WHERE ($1::boolean = FALSE OR active = TRUE)
+            ORDER BY sort_order, name
+            """,
+            active_only,
+        )
+        return [dict(row) for row in rows]
+
+
+async def get_work_group_stations(
+    group_slug: str,
+    active_only: bool = True,
+):
+    async with _pool.acquire() as conn:
+        rows = await conn.fetch(
+            """
+            SELECT s.id, s.station_number, s.label, s.active
+            FROM work_group_stations AS s
+            JOIN work_groups AS g ON g.id = s.group_id
+            WHERE g.slug = $1
+              AND ($2::boolean = FALSE OR s.active = TRUE)
+            ORDER BY s.station_number
+            """,
+            group_slug,
+            active_only,
+        )
+        return [dict(row) for row in rows]
+
+
+
+async def get_group_worker_days_off(group_slug, start_date, end_date):
+    async with _pool.acquire() as conn:
+        rows = await conn.fetch("""
+            SELECT d.worker_id, d.work_date
+            FROM group_worker_days_off AS d
+            JOIN work_groups AS g ON g.id = d.group_id
+            WHERE g.slug = $1
+              AND d.work_date BETWEEN $2 AND $3
+            ORDER BY d.work_date, d.worker_id
+        """, group_slug, start_date, end_date)
+        return [dict(row) for row in rows]
+
+
+async def get_group_workers(group_slug: str, team_code: str | None = None):
+    async with _pool.acquire() as conn:
+        rows = await conn.fetch("""
+            SELECT w.id, w.name, w.team_code, w.is_reserve,
+                   w.reserve_number, w.active
+            FROM group_workers AS w
+            JOIN work_groups AS g ON g.id = w.group_id
+            WHERE g.slug = $1
+              AND w.active = TRUE
+              AND ($2::text IS NULL OR w.team_code = $2)
+            ORDER BY w.team_code, w.is_reserve DESC, w.id
+        """, group_slug, team_code)
+        return [dict(row) for row in rows]
+
+
+async def add_group_worker(
+    group_slug: str, name: str, team_code: str, is_reserve: bool = False
+):
+    team_code = team_code.strip().upper()
+    if team_code not in ("A", "B", "C"):
+        raise ValueError("Бригада має бути A, B або C")
+
+    async with _pool.acquire() as conn:
+        row = await conn.fetchrow("""
+            INSERT INTO group_workers (group_id, name, team_code, is_reserve)
+            SELECT id, $2, $3, $4
+            FROM work_groups
+            WHERE slug = $1 AND active = TRUE
+            RETURNING id, name, team_code, is_reserve,
+                      reserve_number, active
+        """, group_slug, name, team_code, is_reserve)
+
+        if row:
+            return dict(row)
+
+        exists = await conn.fetchval(
+            "SELECT EXISTS(SELECT 1 FROM work_groups WHERE slug = $1)",
+            group_slug,
+        )
+        if not exists:
+            raise ValueError(f"Групу не знайдено: {group_slug}")
+        raise ValueError(f"Група неактивна: {group_slug}")
+
+
+async def update_group_worker(
+    group_slug: str, worker_id: int, name: str,
+    team_code: str, is_reserve: bool
+):
+    team_code = team_code.strip().upper()
+    if team_code not in ("A", "B", "C"):
+        raise ValueError("Бригада має бути A, B або C")
+
+    async with _pool.acquire() as conn:
+        row = await conn.fetchrow("""
+            UPDATE group_workers AS w
+            SET name = $3, team_code = $4, is_reserve = $5
+            FROM work_groups AS g
+            WHERE g.id = w.group_id
+              AND g.slug = $1
+              AND w.id = $2
+              AND w.active = TRUE
+            RETURNING w.id, w.name, w.team_code, w.is_reserve,
+                      w.reserve_number, w.active
+        """, group_slug, worker_id, name, team_code, is_reserve)
+        return dict(row) if row else None
+
+
+async def deactivate_group_worker(group_slug: str, worker_id: int):
+    async with _pool.acquire() as conn:
+        row = await conn.fetchrow("""
+            UPDATE group_workers AS w
+            SET active = FALSE
+            FROM work_groups AS g
+            WHERE g.id = w.group_id
+              AND g.slug = $1
+              AND w.id = $2
+              AND w.active = TRUE
+            RETURNING w.id, w.name, w.team_code, w.is_reserve,
+                      w.reserve_number, w.active
+        """, group_slug, worker_id)
+        return dict(row) if row else None
+
+
+async def set_group_worker_reserve(
+    group_slug: str, worker_id: int, is_reserve: bool
+):
+    async with _pool.acquire() as conn:
+        row = await conn.fetchrow("""
+            UPDATE group_workers AS w
+            SET is_reserve = $3
+            FROM work_groups AS g
+            WHERE g.id = w.group_id
+              AND g.slug = $1
+              AND w.id = $2
+              AND w.active = TRUE
+            RETURNING w.id, w.name, w.team_code, w.is_reserve,
+                      w.reserve_number, w.active
+        """, group_slug, worker_id, is_reserve)
+        return dict(row) if row else None
+
+
 async def get_workers(group="exotec_2"):
     tables = get_group_tables(group)
 
@@ -236,6 +385,74 @@ async def get_schedule_settings():
             WHERE id = 1
         """)
         return dict(row) if row else None
+
+
+async def get_group_schedule_settings(group_slug):
+    async with _pool.acquire() as conn:
+        row = await conn.fetchrow("""
+            SELECT g.slug, s.start_week, s.start_shift_slot
+            FROM work_groups g
+            LEFT JOIN group_schedule_settings s ON s.group_id = g.id
+            WHERE g.slug = $1
+        """, group_slug)
+
+        return dict(row) if row else None
+
+
+async def set_group_schedule_settings(
+    group_slug, start_week, start_shift_slot: int
+):
+    if not 1 <= start_shift_slot <= 3:
+        raise ValueError("start_shift_slot має бути від 1 до 3")
+
+    async with _pool.acquire() as conn:
+        row = await conn.fetchrow("""
+            INSERT INTO group_schedule_settings (
+                group_id, start_week, start_shift_slot, updated_at
+            )
+            SELECT id, $2, $3, NOW()
+            FROM work_groups
+            WHERE slug = $1
+            ON CONFLICT (group_id) DO UPDATE SET
+                start_week = EXCLUDED.start_week,
+                start_shift_slot = EXCLUDED.start_shift_slot,
+                updated_at = NOW()
+            RETURNING group_id, start_week, start_shift_slot
+        """, group_slug, start_week, start_shift_slot)
+
+        if not row:
+            raise ValueError(f"Групу не знайдено: {group_slug}")
+
+        return dict(row)
+
+
+async def get_group_shift_for_week(group_slug, week_start):
+    settings = await get_group_schedule_settings(group_slug)
+
+    if not settings:
+        return None
+
+    start_week = settings["start_week"]
+    start_slot = settings["start_shift_slot"]
+
+    if start_week is None or start_slot is None:
+        return None
+
+    weeks_diff = (week_start - start_week).days // 7
+    return ((start_slot - 1 - weeks_diff) % 3) + 1
+
+
+async def get_group_team_shift_slots(group_slug, week_start):
+    phase = await get_group_shift_for_week(group_slug, week_start)
+    if phase is None:
+        return None
+
+    rotations = {
+        3: {"C": 1, "A": 2, "B": 3},
+        2: {"A": 1, "B": 2, "C": 3},
+        1: {"B": 1, "C": 2, "A": 3},
+    }
+    return rotations[phase]
 
 
 async def set_schedule_settings(start_week, start_shift: int):
@@ -367,6 +584,56 @@ async def update_schedule_day(week_id, work_date, is_working_day, default_shift)
 
 
 
+async def get_group_schedule_assignments(week_id, group_slug):
+    async with _pool.acquire() as conn:
+        rows = await conn.fetch("""
+            SELECT
+                a.id,
+                a.week_id,
+                a.work_date,
+                a.worker_id,
+                w.name AS worker_name,
+                s.station_number AS station,
+                a.shift_slot AS shift,
+                a.team_code
+            FROM group_schedule_assignments AS a
+            JOIN work_groups AS g ON g.id = a.group_id
+            JOIN group_workers AS w
+              ON w.id = a.worker_id
+             AND w.group_id = a.group_id
+             AND w.team_code = a.team_code
+            JOIN work_group_stations AS s
+              ON s.id = a.station_id
+             AND s.group_id = a.group_id
+            WHERE a.week_id = $1
+              AND g.slug = $2
+            ORDER BY a.work_date, a.shift_slot, s.station_number
+        """, week_id, group_slug)
+        return [dict(row) for row in rows]
+
+
+async def get_group_schedule_reserves(week_id, group_slug):
+    async with _pool.acquire() as conn:
+        rows = await conn.fetch("""
+            SELECT
+                r.week_id,
+                r.work_date,
+                r.worker_id,
+                w.name AS worker_name,
+                r.team_code
+            FROM group_schedule_reserves AS r
+            JOIN work_groups AS g ON g.id = r.group_id
+            JOIN group_workers AS w
+              ON w.id = r.worker_id
+             AND w.group_id = r.group_id
+             AND w.team_code = r.team_code
+            WHERE r.week_id = $1
+              AND g.slug = $2
+            ORDER BY r.work_date, r.team_code, r.worker_id
+        """, week_id, group_slug)
+        return [dict(row) for row in rows]
+
+
 async def get_schedule_assignments(week_id, group="exotec_2"):
     tables = get_group_tables(group)
 
@@ -405,6 +672,281 @@ async def get_schedule_reserves(week_id, group="exotec_2"):
         """, week_id)
 
         return [dict(row) for row in rows]
+
+
+async def generate_group_schedule_assignments(
+    week_id,
+    week_start,
+    group_slug,
+):
+    if week_start.weekday() != 0:
+        raise ValueError("Початок тижня має бути понеділком")
+
+    team_slots = await get_group_team_shift_slots(group_slug, week_start)
+    if not team_slots:
+        raise ValueError(
+            f"Не налаштовано ротацію групи: {group_slug}"
+        )
+
+    async with _pool.acquire() as conn:
+        async with conn.transaction():
+            group = await conn.fetchrow("""
+                SELECT id
+                FROM work_groups
+                WHERE slug = $1 AND active = TRUE
+            """, group_slug)
+
+            if not group:
+                raise ValueError(
+                    f"Активну групу не знайдено: {group_slug}"
+                )
+
+            group_id = group["id"]
+
+            week = await conn.fetchrow("""
+                SELECT id, week_start
+                FROM schedule_weeks
+                WHERE id = $1
+            """, week_id)
+
+            if not week or week["week_start"] != week_start:
+                raise ValueError(
+                    "week_id не відповідає вказаному week_start"
+                )
+
+            stations = await conn.fetch("""
+                SELECT id, station_number
+                FROM work_group_stations
+                WHERE group_id = $1 AND active = TRUE
+                ORDER BY station_number
+            """, group_id)
+
+            if not stations:
+                raise ValueError(
+                    f"У групі {group_slug} немає активних станцій"
+                )
+
+            workers = await conn.fetch("""
+                SELECT id, team_code, is_reserve
+                FROM group_workers
+                WHERE group_id = $1 AND active = TRUE
+                ORDER BY team_code, id
+            """, group_id)
+
+            if not workers:
+                raise ValueError(
+                    f"У групі {group_slug} немає активних працівників"
+                )
+
+            days_off_rows = await conn.fetch("""
+                SELECT worker_id, work_date
+                FROM group_worker_days_off
+                WHERE group_id = $1
+                  AND work_date BETWEEN $2 AND $3
+            """, group_id, week_start, week_start + timedelta(days=4))
+
+            days_off = {
+                (row["worker_id"], row["work_date"])
+                for row in days_off_rows
+            }
+
+            # Видаляємо тільки розклад цієї групи та цього тижня.
+            await conn.execute("""
+                DELETE FROM group_schedule_assignments
+                WHERE group_id = $1 AND week_id = $2
+            """, group_id, week_id)
+
+            await conn.execute("""
+                DELETE FROM group_schedule_reserves
+                WHERE group_id = $1 AND week_id = $2
+            """, group_id, week_id)
+
+            station_ids = [row["id"] for row in stations]
+            used_by_worker = {
+                row["id"]: set() for row in workers
+            }
+            reserve_count = {
+                row["id"]: 0 for row in workers
+            }
+
+            assignment_count = 0
+            reserve_total = 0
+
+            for team_code in ("A", "B", "C"):
+                team_workers = [
+                    row for row in workers
+                    if row["team_code"].strip() == team_code
+                ]
+                shift_slot = team_slots[team_code]
+                day_plans = []
+
+                # Спочатку фіксуємо склад працівників і резерву на кожен день.
+                for day_offset in range(5):
+                    work_date = week_start + timedelta(days=day_offset)
+                    eligible = [
+                        row for row in team_workers
+                        if (row["id"], work_date) not in days_off
+                    ]
+
+                    if not eligible:
+                        continue
+
+                    fixed_reserve = [
+                        row for row in eligible if row["is_reserve"]
+                    ]
+                    ordinary = [
+                        row for row in eligible if not row["is_reserve"]
+                    ]
+
+                    reserve_slots = max(
+                        0, len(ordinary) - len(station_ids)
+                    )
+                    never_reserved = [
+                        row for row in ordinary
+                        if reserve_count[row["id"]] == 0
+                    ]
+                    previously_reserved = [
+                        row for row in ordinary
+                        if reserve_count[row["id"]] > 0
+                    ]
+                    random.shuffle(never_reserved)
+                    random.shuffle(previously_reserved)
+
+                    ordinary_reserves = (
+                        never_reserved + previously_reserved
+                    )[:reserve_slots]
+                    reserve_workers = fixed_reserve + ordinary_reserves
+                    ordinary_reserve_ids = {
+                        row["id"] for row in ordinary_reserves
+                    }
+                    station_workers = [
+                        row for row in ordinary
+                        if row["id"] not in ordinary_reserve_ids
+                    ]
+
+                    day_plans.append({
+                        "work_date": work_date,
+                        "station_workers": station_workers,
+                        "reserve_workers": reserve_workers,
+                    })
+
+                    for row in reserve_workers:
+                        reserve_count[row["id"]] += 1
+
+                # Пошук із поверненням назад: плануємо всі дні команди
+                # разом, щоб не залишити п'ятницю без допустимого варіанта.
+                def solve_week(day_index):
+                    if day_index >= len(day_plans):
+                        return True
+
+                    plan = day_plans[day_index]
+                    station_workers = plan["station_workers"]
+                    candidate = {}
+
+                    def assign_worker(worker_index, available_stations):
+                        if worker_index >= len(station_workers):
+                            plan["assignment"] = candidate.copy()
+                            if solve_week(day_index + 1):
+                                return True
+                            plan.pop("assignment", None)
+                            return False
+
+                        worker = station_workers[worker_index]
+                        worker_id = worker["id"]
+                        choices = [
+                            station_id
+                            for station_id in available_stations
+                            if station_id not in used_by_worker[worker_id]
+                        ]
+                        random.shuffle(choices)
+
+                        for station_id in choices:
+                            used_by_worker[worker_id].add(station_id)
+                            candidate[worker_id] = station_id
+                            remaining_stations = [
+                                item for item in available_stations
+                                if item != station_id
+                            ]
+
+                            if assign_worker(
+                                worker_index + 1, remaining_stations
+                            ):
+                                return True
+
+                            candidate.pop(worker_id, None)
+                            used_by_worker[worker_id].remove(station_id)
+
+                        return False
+
+                    return assign_worker(0, station_ids[:])
+
+                if not solve_week(0):
+                    failed_date = (
+                        day_plans[-1]["work_date"]
+                        if day_plans else week_start
+                    )
+                    raise RuntimeError(
+                        f"Не вдалося розподілити станції на весь тиждень "
+                        f"для команди {team_code}; перевірено до {failed_date}"
+                    )
+
+                # Записуємо лише після успішного планування всіх днів команди.
+                for plan in day_plans:
+                    work_date = plan["work_date"]
+                    assignment = plan["assignment"]
+                    reserve_workers = plan["reserve_workers"]
+
+                    assignment_rows = [
+                        (
+                            group_id,
+                            team_code,
+                            shift_slot,
+                            week_id,
+                            work_date,
+                            worker_id,
+                            station_id,
+                        )
+                        for worker_id, station_id in assignment.items()
+                    ]
+
+                    if assignment_rows:
+                        await conn.executemany("""
+                            INSERT INTO group_schedule_assignments (
+                                group_id, team_code, shift_slot,
+                                week_id, work_date, worker_id, station_id
+                            )
+                            VALUES ($1, $2, $3, $4, $5, $6, $7)
+                        """, assignment_rows)
+
+                    reserve_rows = [
+                        (
+                            group_id,
+                            team_code,
+                            week_id,
+                            work_date,
+                            row["id"],
+                        )
+                        for row in reserve_workers
+                    ]
+
+                    if reserve_rows:
+                        await conn.executemany("""
+                            INSERT INTO group_schedule_reserves (
+                                group_id, team_code, week_id,
+                                work_date, worker_id
+                            )
+                            VALUES ($1, $2, $3, $4, $5)
+                        """, reserve_rows)
+
+                    assignment_count += len(assignment_rows)
+                    reserve_total += len(reserve_rows)
+
+            return {
+                "group": group_slug,
+                "week_start": week_start.isoformat(),
+                "assignments": assignment_count,
+                "reserves": reserve_total,
+            }
 
 
 async def generate_schedule_assignments(
@@ -1041,4 +1583,269 @@ async def set_lunch_setting(
             start_time,
         )
 
+        return dict(row) if row else None
+
+
+async def set_group_schedule_assignment(
+    week_id: int,
+    work_date,
+    worker_id: int,
+    station: int,
+    shift_slot: int,
+    group_slug: str,
+):
+    from datetime import date as date_type
+
+    if shift_slot not in (1, 2, 3):
+        raise ValueError("Некоректна зміна")
+
+    if isinstance(work_date, str):
+        work_date = date_type.fromisoformat(work_date)
+
+    async with _pool.acquire() as conn:
+        async with conn.transaction():
+            group = await conn.fetchrow(
+                "SELECT id FROM work_groups WHERE slug = $1 AND active = TRUE",
+                group_slug,
+            )
+            if not group:
+                raise ValueError("Групу не знайдено або вона неактивна")
+
+            group_id = group["id"]
+
+            week = await conn.fetchrow(
+                "SELECT week_start FROM schedule_weeks WHERE id = $1",
+                week_id,
+            )
+            if not week:
+                raise ValueError("Тиждень не знайдено")
+
+            week_start = week["week_start"]
+            if not (week_start <= work_date <= week_start.fromordinal(
+                week_start.toordinal() + 6
+            )):
+                raise ValueError("Дата не належить до вибраного тижня")
+
+            worker = await conn.fetchrow(
+                """
+                SELECT id, team_code
+                FROM group_workers
+                WHERE id = $1 AND group_id = $2 AND active = TRUE
+                """,
+                worker_id, group_id,
+            )
+            if not worker:
+                raise ValueError("Працівника не знайдено в цій групі")
+
+            day_off = await conn.fetchval(
+                """
+                SELECT EXISTS(
+                    SELECT 1 FROM group_worker_days_off
+                    WHERE group_id = $1 AND worker_id = $2 AND work_date = $3
+                )
+                """,
+                group_id, worker_id, work_date,
+            )
+            if day_off:
+                raise ValueError("Працівник відсутній у цей день")
+
+            station_row = await conn.fetchrow(
+                """
+                SELECT id
+                FROM work_group_stations
+                WHERE group_id = $1
+                  AND station_number = $2
+                  AND active = TRUE
+                """,
+                group_id, station,
+            )
+            if not station_row:
+                raise ValueError("Станцію не знайдено в цій групі")
+
+            team_code = worker["team_code"]
+
+            rotation = await conn.fetchrow(
+                """
+                SELECT start_week, start_shift_slot
+                FROM group_schedule_settings
+                WHERE group_id = $1
+                """,
+                group_id,
+            )
+            if (
+                not rotation
+                or rotation["start_week"] is None
+                or rotation["start_shift_slot"] is None
+            ):
+                raise ValueError("Спочатку налаштуйте ротацію групи")
+
+            weeks_diff = (week_start - rotation["start_week"]).days // 7
+            phase = (
+                (rotation["start_shift_slot"] - 1 - weeks_diff) % 3
+            ) + 1
+
+            rotations = {
+                3: {"C": 1, "A": 2, "B": 3},
+                2: {"A": 1, "B": 2, "C": 3},
+                1: {"B": 1, "C": 2, "A": 3},
+            }
+            shift_slot = rotations[phase][team_code]
+
+            current = await conn.fetchrow(
+                """
+                SELECT id, station_id
+                FROM group_schedule_assignments
+                WHERE group_id = $1 AND team_code = $2
+                  AND week_id = $3 AND work_date = $4
+                  AND worker_id = $5
+                FOR UPDATE
+                """,
+                group_id, team_code, week_id, work_date, worker_id,
+            )
+
+            occupied = await conn.fetchrow(
+                """
+                SELECT id, worker_id, team_code, shift_slot, station_id
+                FROM group_schedule_assignments
+                WHERE group_id = $1 AND team_code = $2
+                  AND week_id = $3 AND work_date = $4
+                  AND station_id = $5
+                FOR UPDATE
+                """,
+                group_id, team_code, week_id, work_date, station_row["id"],
+            )
+
+
+
+            if occupied and occupied["worker_id"] != worker_id:
+                if current:
+                    # Обмін станціями двох уже призначених працівників.
+                    await conn.execute(
+                        """
+                        DELETE FROM group_schedule_assignments
+                        WHERE id = ANY($1::bigint[])
+                        """,
+                        [current["id"], occupied["id"]],
+                    )
+                    await conn.executemany(
+                        """
+                        INSERT INTO group_schedule_assignments
+                            (group_id, team_code, shift_slot, week_id,
+                             work_date, worker_id, station_id)
+                        VALUES ($1, $2, $3, $4, $5, $6, $7)
+                        """,
+                        [
+                            (
+                                group_id, team_code, shift_slot, week_id,
+                                work_date, worker_id, station_row["id"],
+                            ),
+                            (
+                                group_id, team_code, occupied["shift_slot"],
+                                week_id, work_date, occupied["worker_id"],
+                                current["station_id"],
+                            ),
+                        ],
+                    )
+                else:
+                    # Попередній працівник переходить у резерв на цю дату.
+                    await conn.execute(
+                        """
+                        INSERT INTO group_schedule_reserves
+                            (group_id, team_code, week_id, work_date, worker_id)
+                        VALUES ($1, $2, $3, $4, $5)
+                        ON CONFLICT
+                            (group_id, team_code, week_id, work_date, worker_id)
+                        DO NOTHING
+                        """,
+                        group_id, occupied["team_code"], week_id,
+                        work_date, occupied["worker_id"],
+                    )
+                    # Новий працівник займає вибрану станцію.
+                    await conn.execute(
+                        """
+                        UPDATE group_schedule_assignments
+                        SET worker_id = $1, shift_slot = $2
+                        WHERE id = $3
+                        """,
+                        worker_id, shift_slot, occupied["id"],
+                    )
+            elif current:
+                await conn.execute(
+                    """
+                    UPDATE group_schedule_assignments
+                    SET station_id = $1, shift_slot = $2
+                    WHERE id = $3
+                    """,
+                    station_row["id"], shift_slot, current["id"],
+                )
+            else:
+                await conn.execute(
+                    """
+                    INSERT INTO group_schedule_assignments
+                        (group_id, team_code, shift_slot, week_id,
+                         work_date, worker_id, station_id)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7)
+                    """,
+                    group_id, team_code, shift_slot, week_id,
+                    work_date, worker_id, station_row["id"],
+                )
+
+            # Прибрати з резерву працівника, якого призначили на станцію.
+            await conn.execute(
+                """
+                DELETE FROM group_schedule_reserves
+                WHERE group_id = $1 AND week_id = $2
+                  AND work_date = $3 AND worker_id = $4
+                """,
+                group_id, week_id, work_date, worker_id,
+            )
+
+            row = await conn.fetchrow(
+                """
+                SELECT a.id, a.week_id, a.work_date, a.worker_id,
+                       w.name AS worker_name,
+                       s.station_number AS station,
+                       a.shift_slot AS shift, a.team_code
+                FROM group_schedule_assignments a
+                JOIN group_workers w
+                  ON w.id = a.worker_id AND w.group_id = a.group_id
+                JOIN work_group_stations s
+                  ON s.id = a.station_id AND s.group_id = a.group_id
+                WHERE a.group_id = $1 AND a.week_id = $2
+                  AND a.work_date = $3 AND a.worker_id = $4
+                """,
+                group_id, week_id, work_date, worker_id,
+            )
+            return dict(row) if row else None
+
+
+async def delete_group_schedule_assignment(
+    week_id: int,
+    work_date,
+    station: int,
+    group_slug: str,
+):
+    from datetime import date as date_type
+
+    if isinstance(work_date, str):
+        work_date = date_type.fromisoformat(work_date)
+
+    async with _pool.acquire() as conn:
+        row = await conn.fetchrow(
+            """
+            DELETE FROM group_schedule_assignments a
+            USING work_groups g, work_group_stations s
+            WHERE a.group_id = g.id
+              AND s.id = a.station_id
+              AND s.group_id = a.group_id
+              AND g.slug = $1
+              AND a.week_id = $2
+              AND a.work_date = $3
+              AND s.station_number = $4
+            RETURNING a.id, a.week_id, a.work_date, a.worker_id,
+                      s.station_number AS station,
+                      a.shift_slot AS shift, a.team_code
+            """,
+            group_slug, week_id, work_date, station,
+        )
         return dict(row) if row else None

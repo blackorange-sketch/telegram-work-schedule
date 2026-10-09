@@ -1239,3 +1239,146 @@ body.group-select-mode .bottom-nav {
 body.group-select-mode #groupSelectScreen {
     min-height: 100vh;
 }
+
+/* =========================
+   WORKER TEAM TABS
+   ========================= */
+
+.worker-team-tabs {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+    margin: 16px 0 12px;
+}
+
+.worker-team-tab {
+    min-width: 0;
+    padding: 12px 6px;
+    border: 1px solid var(--border-color, rgba(128, 128, 128, 0.3));
+    border-radius: 12px;
+    background: var(--card-bg, #ffffff);
+    color: inherit;
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.15s ease, transform 0.12s ease;
+}
+
+.worker-team-tab.active {
+    background: var(--accent-color, #2563eb);
+    color: #ffffff;
+    border-color: transparent;
+}
+
+.worker-team-tab:active {
+    transform: scale(0.97);
+}
+
+.workers-team-label {
+    margin: 8px 0 12px;
+    font-size: 15px;
+    font-weight: 700;
+}
+
+.workers-empty {
+    padding: 20px 12px;
+    text-align: center;
+    opacity: 0.7;
+}
+
+.worker-team-field {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-top: 14px;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.worker-team-field select {
+    width: 100%;
+    min-height: 44px;
+    padding: 10px 12px;
+    border: 1px solid rgba(128, 128, 128, 0.35);
+    border-radius: 10px;
+    background: var(--card-bg, #ffffff);
+    color: inherit;
+    font: inherit;
+}
+
+.worker-reserve-field {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 14px;
+    padding: 8px 0;
+    font-size: 14px;
+}
+
+.worker-reserve-field input {
+    width: 18px;
+    height: 18px;
+    margin: 0;
+    flex-shrink: 0;
+}
+
+.worker-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.worker-actions button {
+    min-width: 40px;
+    min-height: 40px;
+    padding: 6px;
+    border: 0;
+    border-radius: 10px;
+    background: rgba(128, 128, 128, 0.12);
+    color: inherit;
+    cursor: pointer;
+}
+
+.worker-actions button:active {
+    opacity: 0.65;
+}
+
+.worker-name {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.worker-modal-box {
+    max-width: 420px;
+    width: calc(100% - 32px);
+    box-sizing: border-box;
+}
+
+.worker-modal-box input[type="text"] {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.worker-modal-buttons button {
+    min-height: 44px;
+}
+
+@media (max-width: 360px) {
+    .worker-team-tabs {
+        gap: 5px;
+    }
+
+    .worker-team-tab {
+        padding: 10px 3px;
+        font-size: 13px;
+    }
+
+    .worker-actions {
+        gap: 3px;
+    }
+
+    .worker-actions button {
+        min-width: 36px;
+        min-height: 36px;
+    }
+}
