@@ -664,6 +664,10 @@ function openStationChoiceModal(worker, workDate, currentAssignment = null) {
                 changingStations.add(`${workDate}_${station}`);
             }
 
+            // Сервер міг обміняти працівників або перевести попереднього в PP:
+            // перечитуємо розклад, щоб показати фактичний стан.
+            await loadScheduleAssignments();
+
             modal.classList.add("hidden");
             clearButton.style.display = "";
             markScheduleChanged();

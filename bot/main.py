@@ -37,6 +37,8 @@ from bot.database import (
     set_group_schedule_reserve,
     delete_group_schedule_reserve,
     clear_group_schedule_week,
+    set_group_schedule_assignment,
+    delete_group_schedule_assignment,
     get_group_lunch,
     set_group_lunch_team,
     set_group_lunch_start_times,
